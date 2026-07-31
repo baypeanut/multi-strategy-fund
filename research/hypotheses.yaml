@@ -1,0 +1,74 @@
+- name: momentum-only at breadth (slow rebalance)
+  type: signal_backtest
+  status: done
+  source: seed
+  params:
+    w_momentum: 1.0
+    w_reversal: 0.0
+    w_low_vol: 0.0
+    rebalance_days: 42
+    market_neutral: true
+    n_names: 120
+    period: 3y
+  rationale: E1 blended config failed; isolate slow momentum at wider breadth.
+  family: price-factors
+  result_id: N0015
+- name: F1 - wide-universe earnings drift (H1 power fix)
+  type: event_study
+  status: pending
+  source: seed
+  params:
+    n_names: 500
+    item: '2.02'
+    drift_col: car2_10
+  rationale: H1's strongest cell (+91bps, t=1.64) was underpowered at 45 names; 500
+    names multiplies events ~10x. This is the pre-registered F1 follow-up.
+  family: 8k-drift
+- name: F1b - all-8K drift at breadth
+  type: event_study
+  status: pending
+  source: seed
+  params:
+    n_names: 500
+    item: null
+    drift_col: car2_10
+  rationale: unconditional replication of H1 ALL-cell with ~10x the events.
+  family: 8k-drift
+- name: fast reversal book
+  type: signal_backtest
+  status: pending
+  source: seed
+  params:
+    w_momentum: 0.0
+    w_reversal: 1.0
+    w_low_vol: 0.5
+    rebalance_days: 5
+    market_neutral: true
+    n_names: 200
+    period: 2y
+  rationale: reversal decays fast; E1 tested it at 21d rebalance which may have destroyed
+    it. 5d rebalance is the honest test (costs will bite - good).
+  family: price-factors
+- name: F1c - earnings-drift recency split (last 12 months)
+  type: event_study
+  status: pending
+  source: seed
+  params:
+    n_names: 500
+    item: null
+    drift_col: car2_10
+  rationale: F1b PASSED (t=4.14) on 4y pooled; the critical validation is whether
+    the generalized-PEAD drift survives in recent data (regime stability). Same spec
+    - the harness period is the difference to add next.
+  family: 8k-drift
+- name: F1d - per-item drift localization (mgmt change 5.02)
+  type: event_study
+  status: pending
+  source: seed
+  params:
+    n_names: 500
+    item: '5.02'
+    drift_col: car2_10
+  rationale: locate WHERE the all-8K drift lives; if 5.02/8.01 obscure events drive
+    it (slow price discovery thesis), that is the tradeable cell.
+  family: 8k-drift
