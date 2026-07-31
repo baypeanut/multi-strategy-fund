@@ -1,0 +1,150 @@
+# ============================================================
+# Multi-Strategy Systematic Fund - Configuration
+# Proof phase: $3M paper book, design framed for $100M mandate.
+# ============================================================
+
+fund:
+  name: "Multi-Strategy Systematic Fund"
+  base_currency: USD
+  paper_capital: 3_000_000        # proof-phase paper NAV
+  mandate_capital: 100_000_000    # design/capacity target (framing only)
+
+# Capital split (your decision): 80% equities / 20% crypto
+allocation:
+  equities: 0.80
+  crypto: 0.20
+
+# Risk-budget split across the four books (risk, not capital)
+# `enabled` is a real kill switch for every book (E47). It was not: S1-S4's
+# flags were unread while the books traded, so the config claimed three were
+# off. Off now means the book goes flat and keeps being marked.
+systems:
+  s1_quant:        { risk_weight: 0.33, enabled: true }
+  s2_news:         { risk_weight: 0.33, enabled: true }
+  s3_llm:          { risk_weight: 0.33, enabled: true }
+  s4_combined:     { risk_weight: 1.00, enabled: true }
+  # S5 - forward shadow of the CONFIRMED 8k-drift edge (RESEARCH_LOG E18).
+  # Standalone event-driven sleeve, NOT part of the S4 ensemble. ENABLED
+  # 2026-07-26 (E35): the forward-OOS clock is now RUNNING and irreversible
+  # every marked day is evidence on the fund's only confirmed edge. "Zero
+  # further optimization" - params below are the confirmed spec, never tuned.
+  s5_event:        { risk_weight: 0.00, enabled: true }
+
+# S5 confirmed-spec parameters (do not tune - see E18 / the lockbox one-shot)
+s5:
+  entry_lag: 2                    # calendar-day offset to entry (snapped to bar)
+  exit_lag: 10                    # calendar-day offset to exit
+  min_units: 4                    # breadth guard (matches calendar_time_daily)
+  n_names: 500                    # full universe, as confirmed
+
+# IBKR paper-execution mirror (E24) - S4's liquid equity core -> real fills
+# on the SIMULATED (DU*) account. Purpose: execution-realism data (real
+# queue-at-open fills, commissions) to calibrate the modeled cost surface.
+# The internal $3M books stay canonical; weights are dimensionless and are
+# applied to IBKR's own ~$1M NAV. The broker module hard-refuses any account
+# not starting with "DU" - it can never touch a live account. At real money,
+# human order confirmation gets inserted in core/broker/ibkr_broker.py.
+# Broker mirror. A paper account at a real broker holds part of the S4 book so
+# modeled fills can be checked against what a venue actually does. Off by
+# default: a fresh clone should never reach a broker until someone means it.
+ibkr:
+  enabled: false
+  execute: false                  # false = dry-run (plan + log, no orders)
+  host: 127.0.0.1
+  port: 4002
+  client_id: 7
+  account: DU0000000              # paper only: a non-DU account is refused
+  top_n: 100                      # liquid-core slice of S4's equity book
+  min_trade_usd: 200              # dust filter (2bp of $1M)
+  max_orders_per_sync: 150        # fuse: abort sync if plan exceeds this
+  session_only: true              # E40: sync ONLY while US cash is open. An
+                                  # overnight plan commits full-size DAY orders
+                                  # to a stale target that the first RTH
+                                  # rebalance revises - ~85% of the opening
+                                  # position was reversed one sync later.
+                                  # A halt-flatten is exempt (risk control).
+  limit_buffer: 0.015             # marketable-limit: last close ±1.5% (paper
+                                  # accounts reject MKT orders w/o data subs;
+                                  # limits also bound slippage for free)
+
+# Agent autonomy (E30) - the Staff-Engineer lane, FULL AUTHORITY.
+# The agent reads everything, writes proposals, and applies them ITSELF: no
+# human gate on any path. Owner decision 2026-07-24, made with the one-way-door
+# risks (lockbox shot, pre-registration clock, live orders) explicitly on the
+# table. Safety now rests on two mechanical things only:
+#   1. apply_proposal runs the full pytest suite and auto-rolls-back on red
+#   2. every applied proposal is its own git commit -> granular `git revert`
+# Flip mode -> real_money_locked at go-live to shut the whole lane with one line.
+# Agent governance. `mode` is the cage every agent runs inside: the broker
+# refuses to arm anything but a paper account while this reads paper_flexible,
+# and flipping it is an owner decision, never an agent's.
+agent_governance:
+  mode: paper_flexible            # paper_flexible | real_money_locked
+
+# Independent watchdog (cron, outside the trading process). E34: self-healing
+# a wedged Gateway is restarted by the watchdog itself, once per realert window.
+watchdog:
+  auto_restart_gateway: true
+
+# Portfolio risk targets
+risk:
+  vol_target_annual: 0.10         # 10% annualized portfolio vol
+  max_gross: 1.00                 # no leverage in proof phase
+  max_net: 1.00
+  max_position: 0.05              # <=5% NAV per name
+  max_sector: 0.25
+  liquidity_adv_cap: 0.10         # position <= 10% of 20d ADV
+  kelly_fraction: 0.25
+  # Drawdown circuit breakers (peak-to-trough)
+  dd_gate_1: -0.10                # halve sizing
+  dd_gate_2: -0.15                # halt new risk, go cash, human review
+  daily_loss_kill: -0.03          # single-day kill switch
+  var_limit_95: 0.02              # daily 95% VaR <= 2% NAV
+
+# Transaction cost model (intentionally pessimistic)
+costs:
+  equities:
+    commission_bps: 0.0           # zero-commission broker (Alpaca)
+    half_spread_bps: 1.5          # modeled spread cost per side
+    impact_coef: 0.10             # Y in square-root impact law
+    borrow_annual_bps: 50.0       # short borrow cost (annualized)
+  crypto:
+    commission_bps: 5.0           # taker fee per side
+    half_spread_bps: 2.5
+    impact_coef: 0.12
+    borrow_annual_bps: 0.0        # spot only in proof phase
+
+# LLM brains - activation is automatic by key/service presence:
+#   ANTHROPIC_API_KEY in .env  -> AnthropicPM/Scorer (frontier)
+#   ollama running (enabled)   -> local fallback
+#   neither                    -> deterministic heuristic/lexicon
+llm:
+  enabled: true                     # ollama fallback on/off
+  model: "qwen2.5:3b-instruct"      # ollama model
+  host: "http://localhost:11434"
+  s3_model: "claude-opus-4-8"       # S3 PM - frontier judgment (budget raised to ~$10/wk 2026-07-09)
+  s2_model: "claude-haiku-4-5"      # S2 headline scoring (pennies; Haiku is the right tool here)
+  # Spend guards (hard daily caps; beyond them the fallback chain takes over)
+  max_pm_calls_per_day: 16          # S3 Anthropic decisions/day (~$8/wk headroom)
+  max_scorer_calls_per_day: 400     # S2 Anthropic headline scores/day
+
+# Information-gated rebalancing: books only re-decide on NEW information
+# a new daily bar, or a material shift in the news signal. Otherwise weights
+# are held: no churn, no turnover cost, no LLM call. (Head-quant audit fix:
+# hourly micro-rebalancing of decaying news scores was costing ~1.5-2%/yr in
+# friction and burning the LLM budget on unchanged briefings.)
+rebalance:
+  s2_z_round: 0.20                  # news z quantum; smaller = more sensitive
+
+# Telegram posture: one daily digest after digest_hour_utc. Only HALT /
+# halt-clear / backup-failure still fire immediately (urgent).
+alerts:
+  telegram_daily_only: true
+  digest_hour_utc: 21             # ~17:00 ET in summer; after US cash close
+
+data:
+  equities_provider: yfinance
+  crypto_provider: ccxt           # binance public
+  crypto_exchange: binanceus
+  macro_provider: fred_csv        # free FRED CSV endpoint, no API key
+  cache_dir: data/cache

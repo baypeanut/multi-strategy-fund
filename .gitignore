@@ -1,0 +1,20 @@
+# secrets, never commit
+.env
+*.env
+!.env.example
+**/config.ini
+
+# environment
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# live fund ledger and artifacts. Root-anchored on purpose: a bare `data/`
+# also matches core/data/, which is source.
+/data/
+logs/
+*.log
+
+# agent scratch
+research/WISHES.md

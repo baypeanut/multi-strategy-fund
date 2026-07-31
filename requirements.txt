@@ -1,0 +1,20 @@
+# Core data + numerics
+numpy
+pandas
+scipy
+pyyaml
+certifi           # CA bundle for urllib (EDGAR, FRED)
+
+# Free data providers
+yfinance          # equities (free fallback)
+ccxt              # crypto public data (free)
+
+# Paid integrations (activate via keys in .env)
+anthropic         # S3 PM + S2 scoring (ANTHROPIC_API_KEY)
+
+# Validation / stats (used from step 3 on)
+statsmodels       # cointegration, regressions
+
+# Testing
+pytest
+pytest-timeout>=2.3
