@@ -10,74 +10,100 @@ no leverage. It runs on free data (yfinance, ccxt public, SEC EDGAR, FRED).
 
 ## How it fits together
 
-Two diagrams. The colors say who is responsible for each box:
+Two diagrams. The colours say who is responsible for each box:
 
 🟩 **my decision** (every formula, limit and trading rule)
-🟦 **plain code** (deterministic, same input gives the same output, every time)
+🟦 **plain code** (deterministic, same input gives the same answer every time)
 🟪 **an AI agent** (proposes and argues, never has the last word)
 
-### 1. How a trade happens
+### 1. Five books, four unrelated mechanisms
+
+These are not five steps of one pipeline. They are separate systems with
+nothing in common except the data they read and the risk ceiling they answer
+to. A ranking model, a sentiment reader, a language model and an event study
+have no shared logic, and that is the point: if four unrelated methods
+disagree, at most one of them is right about any given day.
+
+S4 is the exception, and it is drawn that way. It is the only book that reads
+the others.
 
 ```mermaid
-flowchart TD
-    D["Free market data<br/>prices, filings, news, economy"] --> BOOKS
+flowchart LR
+    D[("Market data<br/>prices, filings, news, macro")]
 
-    subgraph BOOKS["Five strategies, same universe, run side by side"]
-        direction LR
-        S1["S1 Quant<br/>plain code, no AI at all"]
-        S2["S2 News<br/>reads headlines and filings"]
-        S3["S3 Discretionary<br/>AI proposes a portfolio"]
-        S4["S4 Combined<br/>blends the three above"]
-        S5["S5 Event<br/>the one proven edge"]
-    end
+    D --> M1
+    D --> M2
+    D --> M3
+    D --> M5
 
-    BOOKS --> W["Position sizing math<br/>all five aim at the same risk level,<br/>so the comparison is fair"]
-    W --> G["Risk governor<br/>caps per position, per sector, and<br/>a stop that halts everything"]
-    G --> B["Paper broker<br/>charges pessimistic trading costs<br/>so results are never flattered"]
-    B --> L["Scoreboard<br/>who is actually winning, and by how much"]
+    M1["<b>Cross-sectional ranking</b><br/>momentum, volatility, reversal<br/>fixed rules, nothing is learned"] --> S1["<b>S1 Quant</b><br/>the control group"]
+    M2["<b>Sentiment scoring</b><br/>keyword tiers first, a small<br/>model only where it matters"] --> S2["<b>S2 News</b>"]
+    M3["<b>Language model reasoning</b><br/>over a structured briefing,<br/>output forced into a fixed schema"] --> S3["<b>S3 Discretionary</b>"]
+    M5["<b>Event study</b><br/>drift in a fixed window after<br/>a company files an 8-K"] --> S5["<b>S5 Event</b><br/>the one proven edge"]
 
-    classDef mine fill:#22c55e22,stroke:#22c55e,stroke-width:2px
-    classDef code fill:#3b82f622,stroke:#3b82f6,stroke-width:2px
-    classDef ai   fill:#a855f722,stroke:#a855f7,stroke-width:2px
-    class D,S1,S4,B,L code
-    class S2,S3 ai
-    class W,G,S5 mine
+    S1 --> E
+    S2 --> E
+    S3 --> E
+    E["<b>S4 Combined</b><br/>the only book that reads the others.<br/>Weights them by risk contribution,<br/>not by opinion"]
+
+    S1 --> V
+    S2 --> V
+    S3 --> V
+    S5 --> V
+    E --> V
+
+    V["<b>One volatility target</b><br/>every book is scaled to the same risk,<br/>so a win cannot just be a bigger bet"]
+    V --> G["<b>Risk governor</b><br/>position, sector and liquidity caps,<br/>drawdown gates, daily loss kill switch"]
+    G --> B["<b>Paper broker</b><br/>square-root impact plus spread.<br/>Costs are deliberately overstated"]
+    B --> L["<b>Scoreboard</b><br/>five separate track records,<br/>compared by a statistical test"]
+
+    classDef mine fill:#22c55e18,stroke:#16a34a,stroke-width:2px
+    classDef code fill:#3b82f618,stroke:#2563eb,stroke-width:2px
+    classDef ai   fill:#a855f718,stroke:#9333ea,stroke-width:2px
+    classDef data fill:#64748b18,stroke:#64748b,stroke-width:2px
+
+    class D data
+    class M1,S1,M5,S5,E,B,L code
+    class M2,S2,M3,S3 ai
+    class V,G mine
 ```
-
-S1 is the control group. If the AI-driven books cannot beat plain code, the AI
-is only adding cost, and I would rather find that out on paper.
 
 ### 2. How an idea is allowed to become a strategy
 
-This is the part that matters. Nothing reaches real money by being convincing.
+This is the part that matters. Nothing gets through by being convincing.
 
 ```mermaid
-flowchart TD
-    I["AI research director<br/>reads every past experiment<br/>and designs the next one"] --> LOCK
-    LOCK["Locked before it runs<br/>the target is fixed in advance, so nobody<br/>can move it after seeing the answer"] --> RUN
-    RUN["Scored by plain code<br/>no AI touches its own result"] --> BAR
+flowchart LR
+    I["<b>AI research director</b><br/>reads every past experiment,<br/>writes the next one as a spec"] --> H
 
-    BAR{"Does it clear the bar<br/>set before the test?"}
-    BAR -- "no" --> FAIL["Written up as a failure and kept.<br/>25 experiments so far, 1 confirmed edge"]
-    BAR -- "yes" --> REF["AI referee<br/>whose only job is to attack it"]
+    H["<b>Hash-locked</b><br/>the spec is fingerprinted before it runs.<br/>Change anything after this and it counts<br/>as a new experiment, not the same one"] --> W
 
-    REF --> ME{"My review<br/>the math, the assumptions,<br/>and whether I believe it"}
-    ME -- "not convinced" --> FAIL
-    ME -- "approved" --> FWD["Runs forward on paper, untouched,<br/>until it has earned a verdict"]
+    W["<b>Scored by plain code</b><br/>walk-forward only, on data the idea<br/>has never seen. No AI scores its own work"] --> BAR
 
-    SEC["Security agent<br/>re-reads every file on a rotation<br/>and reports. Changes nothing"] -.-> RUN
+    BAR{"<b>Bars set in advance</b><br/>Deflated Sharpe for how many ideas I tried,<br/>Bonferroni for how hard I searched this family"}
 
-    classDef mine fill:#22c55e22,stroke:#22c55e,stroke-width:2px
-    classDef code fill:#3b82f622,stroke:#3b82f6,stroke-width:2px
-    classDef ai   fill:#a855f722,stroke:#a855f7,stroke-width:2px
-    class I,REF,SEC ai
-    class RUN,FAIL,FWD code
-    class LOCK,BAR,ME mine
+    BAR -- "below the bar" --> F["<b>Filed as a failure, and kept</b><br/>25 experiments so far:<br/>9 failed, 1 confirmed"]
+    BAR -- "clears the bar" --> REF["<b>AI referee</b><br/>whose only job is to attack it"]
+
+    REF --> LB["<b>The lockbox</b><br/>a stretch of history each idea may<br/>be tested against exactly once, ever"]
+
+    LB --> ME{"<b>My review</b><br/>the maths, the assumptions,<br/>and whether I actually believe it"}
+
+    ME -- "not convinced" --> F
+    ME -- "approved" --> FWD["<b>Runs forward on paper</b><br/>untouched and untuned,<br/>until it has earned a verdict"]
+
+    classDef mine fill:#22c55e18,stroke:#16a34a,stroke-width:2px
+    classDef code fill:#3b82f618,stroke:#2563eb,stroke-width:2px
+    classDef ai   fill:#a855f718,stroke:#9333ea,stroke-width:2px
+
+    class I,REF ai
+    class W,F,FWD code
+    class H,BAR,LB,ME mine
 ```
 
-The short version: the AI is allowed to propose experiments and to attack
-results. It is not allowed to score its own work, to move a target after seeing
-the data, or to decide that something is true.
+The short version: the AI proposes experiments and attacks results. It does not
+score its own work, does not move a target after seeing the data, and does not
+get to decide that something is true.
 
 ## The books
 
