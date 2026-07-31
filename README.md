@@ -8,6 +8,77 @@ myself about them.
 $3M paper book, 500 US equities plus liquid crypto, 10% annualized vol target,
 no leverage. It runs on free data (yfinance, ccxt public, SEC EDGAR, FRED).
 
+## How it fits together
+
+Two diagrams. The colors say who is responsible for each box:
+
+🟩 **my decision** (every formula, limit and trading rule)
+🟦 **plain code** (deterministic, same input gives the same output, every time)
+🟪 **an AI agent** (proposes and argues, never has the last word)
+
+### 1. How a trade happens
+
+```mermaid
+flowchart TD
+    D["Free market data<br/>prices, filings, news, economy"] --> BOOKS
+
+    subgraph BOOKS["Five strategies, same universe, run side by side"]
+        direction LR
+        S1["S1 Quant<br/>plain code, no AI at all"]
+        S2["S2 News<br/>reads headlines and filings"]
+        S3["S3 Discretionary<br/>AI proposes a portfolio"]
+        S4["S4 Combined<br/>blends the three above"]
+        S5["S5 Event<br/>the one proven edge"]
+    end
+
+    BOOKS --> W["Position sizing math<br/>all five aim at the same risk level,<br/>so the comparison is fair"]
+    W --> G["Risk governor<br/>caps per position, per sector, and<br/>a stop that halts everything"]
+    G --> B["Paper broker<br/>charges pessimistic trading costs<br/>so results are never flattered"]
+    B --> L["Scoreboard<br/>who is actually winning, and by how much"]
+
+    classDef mine fill:#22c55e22,stroke:#22c55e,stroke-width:2px
+    classDef code fill:#3b82f622,stroke:#3b82f6,stroke-width:2px
+    classDef ai   fill:#a855f722,stroke:#a855f7,stroke-width:2px
+    class D,S1,S4,B,L code
+    class S2,S3 ai
+    class W,G,S5 mine
+```
+
+S1 is the control group. If the AI-driven books cannot beat plain code, the AI
+is only adding cost, and I would rather find that out on paper.
+
+### 2. How an idea is allowed to become a strategy
+
+This is the part that matters. Nothing reaches real money by being convincing.
+
+```mermaid
+flowchart TD
+    I["AI research director<br/>reads every past experiment<br/>and designs the next one"] --> LOCK
+    LOCK["Locked before it runs<br/>the target is fixed in advance, so nobody<br/>can move it after seeing the answer"] --> RUN
+    RUN["Scored by plain code<br/>no AI touches its own result"] --> BAR
+
+    BAR{"Does it clear the bar<br/>set before the test?"}
+    BAR -- "no" --> FAIL["Written up as a failure and kept.<br/>25 experiments so far, 1 confirmed edge"]
+    BAR -- "yes" --> REF["AI referee<br/>whose only job is to attack it"]
+
+    REF --> ME{"My review<br/>the math, the assumptions,<br/>and whether I believe it"}
+    ME -- "not convinced" --> FAIL
+    ME -- "approved" --> FWD["Runs forward on paper, untouched,<br/>until it has earned a verdict"]
+
+    SEC["Security agent<br/>re-reads every file on a rotation<br/>and reports. Changes nothing"] -.-> RUN
+
+    classDef mine fill:#22c55e22,stroke:#22c55e,stroke-width:2px
+    classDef code fill:#3b82f622,stroke:#3b82f6,stroke-width:2px
+    classDef ai   fill:#a855f722,stroke:#a855f7,stroke-width:2px
+    class I,REF,SEC ai
+    class RUN,FAIL,FWD code
+    class LOCK,BAR,ME mine
+```
+
+The short version: the AI is allowed to propose experiments and to attack
+results. It is not allowed to score its own work, to move a target after seeing
+the data, or to decide that something is true.
+
 ## The books
 
 | Book | Decision maker | Signal |
