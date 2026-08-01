@@ -61,7 +61,19 @@ def test_anthropic_pm_parses_structured_output():
     # request used structured outputs + the configured model
     kw = client.messages.last_kwargs
     assert kw["output_config"]["format"]["type"] == "json_schema"
-    assert kw["model"] == "claude-opus-4-8"
+    assert kw["model"] == "claude-opus-5", (
+        "E50: the PM runs the strongest available judgment. A 'no' on the "
+        "registered question is only worth having if it was a no against the "
+        "best model, and a model swap costs a full clock reset, so this moves "
+        "only when the clock does.")
+    assert kw["thinking"] == {"type": "adaptive"}, "this book must reason"
+    assert kw["output_config"]["effort"] == "high", (
+        "effort is pinned, not defaulted - a future default change must not "
+        "quietly move what the experiment measures")
+    assert kw["max_tokens"] >= 16000, (
+        "thinking and the response share this budget on Opus 5. Truncation "
+        "fails the json parse and drops the book to a heuristic, visible only "
+        "in pm_source.")
     assert kw["thinking"] == {"type": "adaptive"}
 
 

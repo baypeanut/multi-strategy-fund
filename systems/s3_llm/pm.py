@@ -92,12 +92,24 @@ class AnthropicPM:
     the trading loop must never stall on an API problem.
 
     Cost is structurally capped by the information gate (a few calls/day) plus
-    the daily budget counter. Model default is claude-opus-4-8 - the strongest
+    the daily budget counter. Model default is claude-opus-5 - the strongest
     judgment for the book whose whole hypothesis is "does frontier judgment
     beat the quant control"; configurable via `llm.s3_model`.
+
+    E50: moved off claude-opus-4-8, which is a generation behind at the SAME
+    price ($5/$25 per MTok). The registered question is whether an LLM PM beats
+    deterministic quant, and a "no" is only worth having if it was a no against
+    the best available judgment. Running a generation-behind model would make a
+    negative result understate what an LLM can do, and a positive one arrive
+    later than it had to.
+
+    Timed to the E49 clock reset on purpose. Mixing brains inside a measurement
+    window contaminates the attribution (E15b), so a model change costs a full
+    reset of the paired test - and the clock is resetting anyway. Doing it now
+    is free; doing it later is not.
     """
 
-    def __init__(self, model: str = "claude-opus-4-8", max_position: float = 0.05,
+    def __init__(self, model: str = "claude-opus-5", max_position: float = 0.05,
                  fallback: "PM | None" = None, client=None, timeout: float = 180.0):
         self.model = model
         self.max_position = max_position
@@ -128,12 +140,22 @@ class AnthropicPM:
         try:
             response = client.messages.create(
                 model=self.model,
-                max_tokens=8000,
-                # adaptive thinking: default-on for Sonnet 5 but NOT for Opus 4.8
-                # when omitted - set explicitly so the PM actually reasons
+                # E50: thinking and the response share this budget, and Opus 5
+                # thinks by default rather than only when asked. A truncated
+                # response fails the json parse and falls silently down the
+                # fallback chain, so the book would degrade to a heuristic with
+                # nothing but `pm_source` to show for it. Headroom is cheaper
+                # than that failure: the PM decides a handful of times a day.
+                max_tokens=24000,
+                # explicit rather than inherited: default-on for Opus 5, off for
+                # Opus 4.8 when omitted, and this book must actually reason
                 thinking={"type": "adaptive"},
+                # `high` is the documented setting for intelligence-sensitive
+                # work. Pinned rather than defaulted so a future default change
+                # cannot quietly move what the experiment is measuring.
+                output_config={"effort": "high",
+                               "format": {"type": "json_schema", "schema": _PM_SCHEMA}},
                 system=_PM_SYSTEM,
-                output_config={"format": {"type": "json_schema", "schema": _PM_SCHEMA}},
                 messages=[{
                     "role": "user",
                     "content": "BRIEFING:\n" + json.dumps(briefing) +
