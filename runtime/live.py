@@ -80,6 +80,18 @@ _BOOK_KEY = {"s1": "s1_quant", "s2": "s2_news", "s3": "s3_llm",
              "s4": "s4_combined", "s5": "s5_event"}
 
 
+def _trading_days_only(s: "pd.Series") -> "pd.Series":
+    """Drop weekends from a date-keyed daily series (E48e).
+
+    The pre-registered decision rule counts TRADING days. Weekend rows exist
+    because crypto reprices while the 80% equity sleeve cannot, so they are not
+    days on which the two books can meaningfully disagree.
+    """
+    if s.empty:
+        return s
+    return s[pd.to_datetime(s.index).weekday < 5]
+
+
 def book_enabled(book: str) -> bool:
     """E47: `enabled` was a kill switch that failed open.
 
@@ -220,6 +232,44 @@ class LiveRuntime:
             by_day[ts[:10]] = val
         return pd.Series(by_day, dtype=float)
 
+    def _realized_vol(self) -> dict:
+        """Is the fair race actually fair? Nothing was measuring it (E48e).
+
+        Every book is normalized to the same EX-ANTE target vol, and the whole
+        horse race rests on that making them comparable. Ex-ante is an estimate
+        though, and the estimate is worst exactly where it matters: S3 holds ~18
+        names carved out of a 500-name covariance, so shrinkage and estimation
+        error hit it hardest.
+
+        Measured 2026-08-01, and it is not a small effect. S3's target was
+        7.54% (10% x regime 0.754) and it realized 8.60%. S1 targeted 10% and
+        realized 8.27%. Both miss, in opposite directions, and they cancel to
+        within 4% of each other. The race is currently fair by accident rather
+        than by construction, and nobody could have known either way.
+
+        Diagnostic only. No decision rule reads this, and it changes no sizing.
+        It exists so the next person can see the tracking error instead of
+        assuming it away.
+        """
+        out: dict[str, dict] = {}
+        cs = self.state.get("clock_start")
+        for book in self.state.get("equity_history", {}):
+            s = self._daily_closes(book)
+            if cs:
+                s = s[s.index >= cs]
+            r = _trading_days_only(s).pct_change().dropna()
+            if len(r) < 10:
+                continue
+            realized = float(r.std() * (252 ** 0.5))
+            target = CONFIG.risk.vol_target_annual
+            if book == "s3":
+                target *= float(self.state.get("regime", {}).get("risk_scale", 1.0))
+            out[book] = {"realized_annual": round(realized, 4),
+                         "target_annual": round(target, 4),
+                         "ratio": round(realized / target, 3) if target else None,
+                         "n": len(r)}
+        return out
+
     def _paired_s3_vs_s1(self) -> dict:
         """Pre-registered experiment readout: S3-S1 daily edge (DM/NW test).
 
@@ -231,6 +281,17 @@ class LiveRuntime:
         cs = self.state.get("clock_start")
         if cs:
             a_ser, b_ser = a_ser[a_ser.index >= cs], b_ser[b_ser.index >= cs]
+        # E48e: the rule says 60 TRADING days and this counted calendar days.
+        # 6 of the first 21 were Saturdays and Sundays, when the 80% equity
+        # sleeve cannot move and the difference between the books is only the
+        # crypto sleeve repricing. Left alone, the pre-registered gate would
+        # have opened after ~43 trading days instead of 60.
+        #
+        # Filter BEFORE differencing, so Monday's return spans Friday's close
+        # and carries the whole weekend move exactly once, which is what a
+        # daily equity return series is. (Exchange holidays are a small
+        # residual: both books hold the same flat equity sleeve through them.)
+        a_ser, b_ser = _trading_days_only(a_ser), _trading_days_only(b_ser)
         a = a_ser.pct_change().dropna()
         b = b_ser.pct_change().dropna()
         res = paired_test(a, b)
@@ -290,6 +351,9 @@ class LiveRuntime:
         cs = self.state.get("clock_start")
         if cs:
             a_ser, b_ser = a_ser[a_ser.index >= cs], b_ser[b_ser.index >= cs]
+        # same trading-day basis as the headline test (E48e), so the diagnostic
+        # and the decision rule cannot drift apart on how they count a day
+        a_ser, b_ser = _trading_days_only(a_ser), _trading_days_only(b_ser)
         a = a_ser.pct_change().dropna()
         b = b_ser.pct_change().dropna()
         res = paired_test(a, b)
@@ -835,9 +899,23 @@ class LiveRuntime:
             s3_source = s3.pm_source
             if s3.pm_source == "anthropic":
                 self._llm_budget_spend("pm")
+            # E49: no regime multiplier here. S3 targets the same 10% as every
+            # other book, so the pre-registered S3-vs-S1 test measures decision
+            # quality and nothing else. The throttle used to make the treatment
+            # arm differ from the control in TWO ways at once, and a difference
+            # you cannot attribute is not evidence.
+            #
+            # S3 still SEES the regime: `reg` goes into the briefing below, so
+            # if regime timing has value the PM can express it by choosing
+            # different positions, which is exactly what we are testing. What
+            # is gone is the code placing a timing bet on the PM's behalf.
+            #
+            # Regime gating itself is H6, an untested hypothesis in this
+            # project's own queue. It belongs in the harness with a bar and a
+            # window, not baked live into the arm being measured.
             w_s3 = scale_to_target_vol(
                 s3.weights, cov,
-                target_vol=CONFIG.risk.vol_target_annual * reg.risk_scale,
+                target_vol=CONFIG.risk.vol_target_annual,
                 max_position=CONFIG.risk.max_position,
                 max_gross=CONFIG.risk.max_gross,
             )
@@ -1230,6 +1308,7 @@ class LiveRuntime:
         # experiment bookkeeping
         self.state["s3_vs_s1"] = self._paired_s3_vs_s1()
         self.state["s3_vs_s1_common"] = self._paired_common()
+        self.state["realized_vol"] = self._realized_vol()
         self.state["data_provider"] = equity_provider_name()
         self.state["anthropic_active"] = has_key("ANTHROPIC_API_KEY")
         counts = self.state.setdefault("s3_pm_counts", {"ollama": 0, "heuristic": 0})

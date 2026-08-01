@@ -53,7 +53,7 @@ ibkr:
   host: 127.0.0.1
   port: 4002
   client_id: 7
-  account: DU0000000              # paper only: a non-DU account is refused
+  account: DU0000000              # must match AND start with DU (enforced)
   top_n: 100                      # liquid-core slice of S4's equity book
   min_trade_usd: 200              # dust filter (2bp of $1M)
   max_orders_per_sync: 150        # fuse: abort sync if plan exceeds this
@@ -67,14 +67,6 @@ ibkr:
                                   # accounts reject MKT orders w/o data subs;
                                   # limits also bound slippage for free)
 
-# Agent autonomy (E30) - the Staff-Engineer lane, FULL AUTHORITY.
-# The agent reads everything, writes proposals, and applies them ITSELF: no
-# human gate on any path. Owner decision 2026-07-24, made with the one-way-door
-# risks (lockbox shot, pre-registration clock, live orders) explicitly on the
-# table. Safety now rests on two mechanical things only:
-#   1. apply_proposal runs the full pytest suite and auto-rolls-back on red
-#   2. every applied proposal is its own git commit -> granular `git revert`
-# Flip mode -> real_money_locked at go-live to shut the whole lane with one line.
 # Agent governance. `mode` is the cage every agent runs inside: the broker
 # refuses to arm anything but a paper account while this reads paper_flexible,
 # and flipping it is an owner decision, never an agent's.
@@ -122,7 +114,10 @@ llm:
   enabled: true                     # ollama fallback on/off
   model: "qwen2.5:3b-instruct"      # ollama model
   host: "http://localhost:11434"
-  s3_model: "claude-opus-4-8"       # S3 PM - frontier judgment (budget raised to ~$10/wk 2026-07-09)
+  s3_model: "claude-opus-5"        # S3 PM - frontier judgment. E50: same $5/$25
+                                    # as opus-4-8, one generation better. Changed AT
+                                    # the E49 clock reset; a model swap costs a full
+                                    # reset of the paired test, so it rides along.
   s2_model: "claude-haiku-4-5"      # S2 headline scoring (pennies; Haiku is the right tool here)
   # Spend guards (hard daily caps; beyond them the fallback chain takes over)
   max_pm_calls_per_day: 16          # S3 Anthropic decisions/day (~$8/wk headroom)
