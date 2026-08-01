@@ -127,13 +127,15 @@ def test_llm_budget_caps_and_resets(rt):
 def test_paired_test_respects_clock_start(rt):
     base = 3_000_000.0
     hist = []
-    for i, d in enumerate(pd.date_range("2026-06-01", periods=30, freq="D")):
+    # business days on purpose: the paired readout counts TRADING days (E48e)
+    for i, d in enumerate(pd.bdate_range("2026-06-01", periods=30)):
         hist.append([d.isoformat(), base * (1 + 0.001 * i)])
     rt.state["equity_history"]["s3"] = hist
     rt.state["equity_history"]["s1"] = [[t, v * 0.999] for t, v in hist]
 
     res_all = rt._paired_s3_vs_s1()
-    rt.state["clock_start"] = "2026-06-20"
+    rt.state["clock_start"] = "2026-06-20"    # a Saturday; 06-22 is the first
     res_clock = rt._paired_s3_vs_s1()
     assert res_clock["n"] < res_all["n"]          # pre-clock days excluded
-    assert res_clock["n"] == 10                   # 11 closes -> 10 returns
+    # 30 business days from 06-01 end 07-10; 06-22 onward is 15 closes
+    assert res_clock["n"] == 14                   # 15 closes -> 14 returns

@@ -59,7 +59,9 @@ def test_history_capped(rt):
 
 
 def _seed_daily(rt, key, vals, start="2026-07-01"):
-    dates = pd.date_range(start, periods=len(vals))
+    # business days: the readouts count TRADING days (E48e), so a calendar-day
+    # fixture would silently test a basis the code no longer uses
+    dates = pd.bdate_range(start, periods=len(vals))
     rt.state.setdefault("common_idx_history", {})[key] = [
         [d.isoformat(), float(v)] for d, v in zip(dates, vals)]
 
@@ -74,7 +76,7 @@ def test_paired_common_is_diagnostic_only(rt):
     # the armor check: this readout can NEVER carry a verdict - the
     # pre-registered decision rule stays the full-book test
     assert "verdict_allowed" not in out
-    assert out["n"] == 29
+    assert out["n"] == 29        # 30 business-day closes -> 29 diffs
     assert out["mean_daily_bps"] is not None
 
 
@@ -83,5 +85,6 @@ def test_paired_common_respects_clock_start(rt):
     _seed_daily(rt, "s3", [1.0 + 0.0012 * i for i in range(30)])
     rt.state["clock_start"] = "2026-07-16"
     out = rt._paired_common()
-    # days 07-16..07-30 inclusive = 15 closes -> 14 paired daily diffs
-    assert out["n"] == 14
+    # 30 business days from 07-01 run to 08-11; 07-16 onward is 19 closes
+    # -> 18 paired daily diffs, all of them trading days
+    assert out["n"] == 18
