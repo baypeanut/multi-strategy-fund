@@ -11,11 +11,11 @@ from core.broker.ibkr_broker import (MirrorAborted, assert_paper_account,
 
 
 def test_paper_account_guard():
-    assert_paper_account("DU1234567", "DU1234567")           # ok
+    assert_paper_account("DU0000000", "DU0000000")           # ok
     with pytest.raises(MirrorAborted):
         assert_paper_account("U1234567", "U1234567")         # live acct: never
     with pytest.raises(MirrorAborted):
-        assert_paper_account("DU1234567", "DUQ999999")       # wrong account
+        assert_paper_account("DU0000000", "DUQ999999")       # wrong account
 
 
 def test_symbol_mapping_roundtrip():
@@ -109,3 +109,16 @@ def test_book_view_matches_shares_and_drift():
     assert "BTC/USDT" not in by                                   # crypto excluded from targets
     assert view["n_long"] == 2 and view["n_short"] == 1
     assert view["gross"] == pytest.approx(0.041, abs=1e-4)        # 20k+20k+1k
+
+
+def test_the_shipped_config_names_an_account():
+    """E48f: `expected=""` means "no configured expectation", and then ANY DU
+    account passes the gate. config.yaml is agent-writable, so a blanked field
+    would silently widen the one boundary that decides which account gets
+    orders. Still DU-only, so not a money path today, but this is the guard
+    that has to hold on the day it is."""
+    from core.config import CONFIG
+    acct = CONFIG.get("ibkr", {}).get("account", "")
+    assert acct and acct.startswith("DU"), (
+        "ibkr.account must name a specific DU* paper account; empty turns the "
+        "identity check into a prefix check")

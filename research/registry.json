@@ -1,149 +1,31 @@
 {
- "total_experiments": 25,
+ "total_experiments": 15,
  "runs": [
   {
    "id": "N0015",
    "type": "signal_backtest",
-   "verdict": "FAIL"
-  },
-  {
-   "id": "N0016",
-   "type": "event_study",
-   "verdict": "FAIL"
-  },
-  {
-   "id": "N0017",
-   "type": "signal_backtest",
-   "verdict": "FAIL"
-  },
-  {
-   "id": "N0018",
-   "type": "event_study",
-   "verdict": "FAIL"
-  },
-  {
-   "id": "N0019",
-   "type": "event_study",
-   "verdict": "PASS"
-  },
-  {
-   "id": "N0020",
-   "type": "signal_backtest",
-   "verdict": "FAIL"
-  },
-  {
-   "id": "N0021",
-   "type": "event_portfolio",
-   "family": "8k-drift",
-   "phase": "confirmation",
-   "verdict": "CONFIRMED"
-  },
-  {
-   "id": "N0022",
-   "type": "signal_backtest",
    "family": "price-factors",
-   "phase": "discovery",
-   "verdict": "FAIL"
-  },
-  {
-   "id": "N0023",
-   "type": "signal_backtest",
-   "family": "price-factors",
-   "phase": "discovery",
-   "verdict": "FAIL"
-  },
-  {
-   "id": "N0024",
-   "type": "signal_backtest",
-   "family": "price-factors",
-   "phase": "discovery",
-   "verdict": "FAIL"
-  },
-  {
-   "id": "N0025",
-   "type": "signal_backtest",
-   "family": "ic-adaptive",
    "phase": "discovery",
    "verdict": "FAIL"
   }
  ],
  "families": {
   "price-factors": {
-   "trials": 11,
-   "status": "open",
-   "confirmations_used": 0
-  },
-  "8k-drift": {
-   "trials": 3,
-   "status": "confirmed",
-   "confirmations_used": 1,
-   "candidate_spec": {
-    "name": "F1b \u2014 all-8K drift at breadth",
-    "type": "event_study",
-    "family": "8k-drift",
-    "params": {
-     "n_names": 500,
-     "item": null,
-     "drift_col": "car2_10"
-    }
-   }
-  },
-  "ic-adaptive": {
    "trials": 1,
    "status": "open",
    "confirmations_used": 0
   }
  },
  "registered_specs": {
-  "9ece0eef71f73d69": {
-   "registered_at": "2026-07-14T21:25:31.738452+00:00",
-   "name": "CONFIRM 8k-drift (calendar-time, lockbox)",
-   "family": "8k-drift",
-   "type": "event_portfolio"
-  },
   "6634cdebd042e758": {
-   "registered_at": "2026-07-15T04:30:11.375111+00:00",
+   "registered_at": "2026-07-18T16:19:08.267265+00:00",
    "name": "momentum-only at breadth (slow rebalance)",
    "family": "price-factors",
    "type": "signal_backtest"
-  },
-  "68eb4e38a7f58a76": {
-   "registered_at": "2026-07-17T04:30:06.742281+00:00",
-   "name": "fast reversal book",
-   "family": "price-factors",
-   "type": "signal_backtest"
-  },
-  "f75c9cf59c54ba5f": {
-   "registered_at": "2026-07-30T23:18:56.822241+00:00",
-   "name": "IC-adaptive full blend at breadth (A)",
-   "family": "ic-adaptive",
-   "type": "signal_backtest"
-  },
-  "7d006bc588fa25d6": {
-   "registered_at": "2026-07-30T23:18:56.822656+00:00",
-   "name": "IC-adaptive without reversal \u2014 mechanism control (B)",
-   "family": "ic-adaptive",
-   "type": "signal_backtest"
-  },
-  "b17f6617352417b7": {
-   "registered_at": "2026-07-31T04:30:02.022407+00:00",
-   "name": "IC-adaptive full blend at breadth (A)",
-   "family": "ic-adaptive",
-   "type": "signal_backtest"
   }
  },
- "research_budget": {
-  "date": "2026-07-31",
-  "director": 1,
-  "engineer": 4
- },
+ "research_budget": {},
  "discovery_hashes": {
-  "fee8088d817b7472": "N0017",
-  "8c8937d27af1ad8a": "N0018",
-  "4983f0e132625f1e": "N0019",
-  "05e08a6808f71cf1": "N0020",
-  "6634cdebd042e758": "N0023",
-  "68eb4e38a7f58a76": "N0024",
-  "b17f6617352417b7": "N0025"
+  "6634cdebd042e758": "N0015"
  }
 }

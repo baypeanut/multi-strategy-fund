@@ -80,7 +80,7 @@ def test_broker_report_no_longer_truncates_to_25(monkeypatch):
     monkeypatch.setattr(IBKRBroker, "snapshot", lambda self: (1_000_000.0, {}))
     monkeypatch.setattr(IBKRBroker, "recent_fills",
                         lambda self: [fill(i) for i in range(120)])
-    br = IBKRBroker({"account": "DU1234567"})
+    br = IBKRBroker({"account": "DU0000000"})
     report = br.refresh({}, {})
     assert len(report["fills_today"]) == 120
     assert report["n_fills_today"] == 120

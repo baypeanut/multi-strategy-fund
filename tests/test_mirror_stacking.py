@@ -54,14 +54,14 @@ class FakeIB:
 @pytest.fixture
 def broker():
     b = IBKRBroker.__new__(IBKRBroker)
-    b.account = "DU1234567"
+    b.account = "DU0000000"
     b._errors = []
     return b
 
 
 def test_cancels_this_accounts_working_orders(broker):
     calls = []
-    broker._ib = FakeIB([FakeTrade(1), FakeTrade(2, account="DU1234567")], calls)
+    broker._ib = FakeIB([FakeTrade(1), FakeTrade(2, account="DU0000000")], calls)
     assert broker.cancel_open_orders() == 2
     assert broker._ib.cancelled == [1, 2]
 

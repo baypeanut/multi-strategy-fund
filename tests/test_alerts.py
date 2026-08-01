@@ -70,7 +70,7 @@ def test_format_daily_digest_includes_ibkr():
         "nav0": 3_000_000,
         "systems": {"s1": {"equity": 3e6}, "s2": {"equity": 3e6},
                     "s3": {"equity": 3e6}, "s4": {"equity": 3e6}},
-        "ibkr": {"account": "DU1234567", "nav": 985_000, "n_positions": 100,
+        "ibkr": {"account": "DU0000000", "nav": 985_000, "n_positions": 100,
                  "book": {"max_abs_drift": 0.001}},
     }
     msg = format_daily_digest(state, datetime(2026, 7, 20, tzinfo=timezone.utc))

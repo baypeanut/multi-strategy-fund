@@ -132,7 +132,7 @@ Keep the "Running Scorecard" and "Open Hypotheses" sections updated.
   3. **Sharadar provider** (research lane) for the PIT/survivorship-clean backtest (fixes audit finding #2 when key arrives).
   4. **Sector cap (25%) now ENFORCED in the governor** - was in SPEC §4 but absent from code (audit finding); sector map for all 45+8 names in universe.py; tested.
   5. **Central `core/env.py`** - key presence = activation; zero code changes needed when keys land.
-- **Honest remaining blocker:** IBKR paper execution cannot be pre-built blind (needs the approved account to integrate/test against). Everything else is now literally "paste the key into .env".
+- **Honest remaining blocker:** IBKR paper execution cannot be pre-built blind (needs the approved account to integrate/test against). Everything else is now literally "paste key into .env".
 - 90 tests passing. Clock note: first Anthropic-brained tick = final-config candidate; 60-day clock restarts there (per E7 rules).
 
 ### 2026-07-09 - E11: Head-quant trade-correctness & data-integrity audit 🔧✅
@@ -486,83 +486,4 @@ Keep the "Running Scorecard" and "Open Hypotheses" sections updated.
   no proposal that night, self-recovers next run), so it's a robustness
   watch-item, not an outage. Also: extend fund-watchdog to alert on a stale
   tick at a much tighter bound than 26h (an 8h freeze should page within ~2h).
-
-### 2026-07-23 - E28: common-universe S3-vs-S1 DIAGNOSTIC (P0007) + pre-registration of its status ✅🔒
-- **Engineer lane confirmed healthy in production:** the 04:39 run completed
-  cleanly (9m37s, no JSONDecodeError) and produced P0007 - the E27 max_tokens
-  fix works unattended. P0006's stale-tick pager also ran all night on its
-  15-min cron, correctly reporting fresh ticks (6-53 min ages, no false page).
-- **P0007 APPLIED - common-universe paired readout (E19 backlog item).**
-  Motivation is structural, not post-hoc: S1 carries a 20% crypto sleeve that
-  S3 *cannot* hold (its briefing is equities-only), so the headline paired test
-  mixes "does frontier judgment add alpha?" with "what did crypto do?". The new
-  `_mark_common` accrues an equity-only return index for s1/s3 from the SAME
-  held weights and SAME marking prices, and `_paired_common` runs the identical
-  DM/Newey-West test over the same `clock_start` window -> `s3_vs_s1_common`.
-- **Diff audited line-by-line before merge** (not rubber-stamped): exactly three
-  insertions in runtime/live.py; `_paired_s3_vs_s1` and its verdict rule are
-  byte-identical context; `_mark_common` writes ONLY `common_idx` /
-  `common_idx_history` and never touches `sysd["equity"]`, `realized`, or
-  `cost` - it structurally cannot contaminate the live books; the readout
-  carries `diagnostic_only: True` and NO verdict field, pinned by a test
-  (`assert "verdict_allowed" not in out`). Additive schema. 211 tests green.
-- **🔒 PRE-REGISTRATION (locked 2026-07-23 at n=11, while the numbers are still
-  uninformative - this is the point):**
-  1. `s3_vs_s1_common` is **DIAGNOSTIC ONLY**. It may never be cited as the
-     superiority test for H-A.
-  2. The registered FULL-BOOK rule (`s3_vs_s1`, n>=60 AND p<0.05) remains the
-     **sole decision authority**, unchanged.
-  3. At readout BOTH are reported honestly. If they materially disagree, that
-     disagreement is itself the finding (and the reason to design the successor
-     experiment on a common universe from the start) - it is NOT a licence to
-     swap rules post-hoc.
-  4. If we ever want the common-universe test to BE the decision rule, that
-     requires a FRESH pre-registration and a FRESH 60-day clock.
-  Rationale for allowing a second number at all: it is ONE structurally
-  motivated comparison that was already on the E19 backlog before any data was
-  seen - categorically different from a many-comparison sweep. (Note the
-  contrast: the same night, Fable correctly DEFERRED the director's per-item
-  breakdown wish as an unregistered many-comparison peek needing a head-quant
-  policy call. That instinct was right; this one clears the bar, the other
-  does not - and the difference is pre-identification + single comparison.)
-- **Honest note on the registered test:** this exposes a real design weakness in
-  H-A as originally registered (crypto confound). Discipline says we do NOT
-  change the registered rule mid-flight; we run the diagnostic alongside, report
-  both, and build the successor experiment better. Logged so the eventual
-  readout cannot pretend the confound was unknown.
-
-### 2026-07-24 - E29: the agent caught my incomplete E27 fix (P0008) 🔴🔧
-- **Live bug, found by the engineer lane before I did.** E27 bounded the IBKR
-  calls so a hung Gateway socket can't freeze the tick loop - and gave the
-  read-only REFRESH path a rotating clientId precisely so an abandoned
-  connection's stale id can't block the next attempt. **I did not apply the
-  same rotation to the MIRROR (trade) path**, which kept the fixed base id.
-  The live incident ring shows exactly what that costs:
-  `19:16 IBKR-SYNC-TIMEOUT (thread abandoned, as designed)` → then
-  `IBKR-SYNC-FAIL TimeoutError` at 20:19, 21:20, 23:24 - every hourly
-  rebalance sync collided on "clientId already in use" against the abandoned
-  thread's id and hung to ib_async's 25s connect timeout, until the Gateway's
-  own ~23:45 daily restart cleared it.
-- **Severity was worse than "orders didn't sync" (Fable flagged this, correctly):
-  while wedged, a halt-flatten could not reach the IBKR paper account.** The
-  internal books would have gone flat on a governor halt while the real paper
-  positions stayed on - a genuine risk-control gap, not just missed fills.
-- **P0008 APPLIED.** One hunk in `_mirror_to_ibkr`: copy the cfg (so the shared
-  CONFIG dict is never mutated - the refresh path already did this) and rotate
-  `client_id` to `base+11 + ticks%8`. Verified the bands are disjoint by
-  construction: refresh 8-15, manual CLI 17, mirror 18-25 - no path can
-  collide with another, and the fixed base id is retired from live use.
-  215 tests green (4 new rotation tests, broker faked, no network).
-- **Process note worth keeping:** this is the first time the engineer lane
-  caught a defect in MY OWN fix from the previous day, diagnosed it from the
-  live incident ring, and proposed the minimal correct patch. The E22 lane is
-  earning its keep as a reviewer of the reviewer, not just a backlog worker.
-- Night otherwise clean: research run 8m19s, no JSON truncation; P0006's
-  stale-tick pager ran all night on its 15-min cron with **0 pages** (tick ages
-  14-29 min, no false positives); runtime tick 869 at 95s; SPY -0.88% while the
-  market-neutral books improved (S1 +0.45%, S2 +0.69%, S4 -0.81%).
-  Registered H-A readout n=13 (mean -13.1 bps/d, p=0.12) - still noise, still
-  `verdict_allowed: False`, exactly as the pre-registered rule requires.
-
----
 
