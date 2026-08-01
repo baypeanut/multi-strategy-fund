@@ -74,3 +74,33 @@ def test_cscv_pbo_dominant_config_low():
     M = pd.DataFrame(np.hstack([winner, base]))
     pbo = cscv_pbo(M, s=8)
     assert pbo < 0.3
+
+
+def test_a_data_gap_is_not_a_free_trade():
+    """E48d: the missing-ADV branch passed adv=1e15 and daily_vol=0.0, which
+    zeroes the square-root impact term exactly. It failed open on the names it
+    should not: a symbol with no volume data is more likely to be illiquid than
+    average, and illiquid names carry the largest real impact."""
+    from backtest.engine import FALLBACK_ADV, FALLBACK_DVOL
+    from core.broker.costs import CostModel, CostParams
+
+    cm = CostModel(CostParams(commission_bps=0.0, half_spread_bps=1.5,
+                              impact_coef=0.1))
+    gap = cm.estimate(500_000.0, adv=FALLBACK_ADV, daily_vol=FALLBACK_DVOL)
+    old = cm.estimate(500_000.0, adv=1e15, daily_vol=0.0)
+
+    assert old.impact == 0.0, "this is what the old fallback charged"
+    assert gap.impact > 0.0, "a data gap must still cost something"
+
+
+def test_the_fallback_is_counted_so_it_can_be_seen(monkeypatch):
+    """A result that rests on the fallback rather than on data should say so."""
+    import numpy as np
+    import pandas as pd
+
+    from backtest.engine import BacktestResult
+    r = BacktestResult(equity=pd.Series([1.0]), net_returns=pd.Series([0.0]),
+                       gross_returns=pd.Series([0.0]), weights=pd.DataFrame(),
+                       turnover=pd.Series(dtype=float), total_cost=0.0,
+                       nav0=1.0)
+    assert r.n_cost_fallback == 0, "defaults to zero so old callers still work"

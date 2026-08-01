@@ -15,6 +15,12 @@ import pandas as pd
 from core.broker.costs import CostModel
 from systems.s1_quant.engine import QuantEngine
 
+# Same neutral assumptions the live cost path uses for a name with no volume
+# data (runtime/live.py). Kept in sync deliberately: a backtest that costs
+# trades differently from the live book is not measuring the live book.
+FALLBACK_ADV = 50e6
+FALLBACK_DVOL = 0.02
+
 
 @dataclass
 class BacktestResult:
@@ -25,6 +31,7 @@ class BacktestResult:
     turnover: pd.Series        # per-rebalance turnover
     total_cost: float          # total $ cost paid
     nav0: float
+    n_cost_fallback: int = 0   # trades costed without ADV/vol data (E48d)
 
     @property
     def cost_drag_annual(self) -> float:
@@ -77,6 +84,7 @@ def run_backtest(
     # realistic cost on rebalance turnover
     cost_frac = pd.Series(0.0, index=dates)
     total_cost = 0.0
+    n_cost_fallback = 0
     nav = nav0
     for loc in rb_locs:
         d = dates[loc]
@@ -91,8 +99,22 @@ def run_backtest(
             adv = float(adv_panel.iloc[loc].get(sym, np.nan))
             dvol = float(vol_panel.iloc[loc].get(sym, np.nan))
             if not np.isfinite(adv) or adv <= 0 or not np.isfinite(dvol):
-                # fallback: spread+commission only
-                bd = cost_model.estimate(trade_value, adv=1e15, daily_vol=0.0)
+                # E48d: this used to pass adv=1e15 and daily_vol=0.0, which
+                # drives the square-root impact term to exactly zero and
+                # charges spread plus commission only. A guard that fails open,
+                # and it fails open on precisely the names it should not: a
+                # symbol with no volume data is more likely to be illiquid than
+                # average, and illiquid names carry the largest real impact.
+                # A strategy concentrated in thinly-covered names therefore
+                # backtested as free to trade at any size.
+                #
+                # Charge the same neutral fallback the live cost path uses, so
+                # a data gap costs what an average name costs instead of
+                # nothing, and count it so a reviewer can see how much of a
+                # result rests on the fallback rather than on data.
+                bd = cost_model.estimate(trade_value, adv=FALLBACK_ADV,
+                                         daily_vol=FALLBACK_DVOL)
+                n_cost_fallback += 1
             else:
                 bd = cost_model.estimate(trade_value, adv=adv, daily_vol=dvol)
             dollar_cost += trade_value * (bd.slippage + bd.commission)
@@ -105,4 +127,5 @@ def run_backtest(
     return BacktestResult(
         equity=equity, net_returns=net_ret, gross_returns=gross_ret.fillna(0.0),
         weights=W, turnover=pd.Series(turnover), total_cost=total_cost, nav0=nav0,
+        n_cost_fallback=n_cost_fallback,
     )
