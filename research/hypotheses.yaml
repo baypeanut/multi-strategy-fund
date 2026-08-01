@@ -72,3 +72,45 @@
   rationale: locate WHERE the all-8K drift lives; if 5.02/8.01 obscure events drive
     it (slow price discovery thesis), that is the tradeable cell.
   family: 8k-drift
+- name: H6 - regime gating of gross exposure
+  type: signal_backtest
+  status: blocked
+  source: E49 (removed from live S3 sizing 2026-08-01)
+  params:
+    n_names: 500
+    period: 3y
+  rationale: >
+    Scaling target vol by the regime risk_scale ran LIVE on S3 alone from W3
+    until E49, untested, inside the treatment arm of the pre-registered
+    S3-vs-S1 experiment. It made the measured difference the sum of selection
+    skill and a timing overlay. Removed from live sizing; the idea itself is
+    unevaluated and worth evaluating on its own terms: does throttling gross by
+    regime improve risk-adjusted return against always-on?
+  blocked_on: >
+    Grammar addition required before this can run. `signal_backtest` has no
+    regime parameter, and backtest.run_backtest takes ONE fixed target_vol for
+    the whole path, so per-rebalance target scaling does not exist. Needs:
+    (1) a `regime_gating` param in ALLOWED_PARAMS["signal_backtest"],
+    (2) historical regime computation over the backtest window, which needs a
+        VIX series in the provider layer, and
+    (3) per-rebalance target scaling threaded through the engine.
+    That is engineering work, not a spec, so it goes to the lane as a wish
+    rather than sitting in the queue as a runnable hypothesis.
+  family: regime-timing
+- name: H7 - how fast does the post-headline move decay?
+  type: event_study
+  status: pending
+  source: owner question 2026-08-01 (E50)
+  params:
+    n_names: 500
+    item: '2.02'
+  rationale: >
+    S2 scores headlines with a cheap model, correctly, but the tick loop runs
+    hourly so news-to-trade latency is up to 60 minutes. Before anyone builds
+    sub-hourly ticks or a streaming feed, measure how much of the reaction is
+    already gone by then. If the move is mostly complete within the hour, the
+    latency work buys nothing and S2's edge must live in the slower drift; if a
+    meaningful part survives, the infrastructure case is real and quantified.
+    Decides an engineering question with data instead of intuition, and reuses
+    the confirmed 8-K windowing rather than inventing a new instrument.
+  family: news-latency

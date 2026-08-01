@@ -87,9 +87,9 @@ If the grammar cannot express an experiment you believe is the most
 informative next step, do NOT contort a weaker spec - put the idea in
 engineering_wishes (plain language, what primitive/data you need and why).
 The owner reads these and decides whether to build the primitive, so a
-well-argued wish can grow your grammar. Say so explicitly when a wish needs a
-budget or capital decision: buying data, spending the lockbox shot, anything
-touching live capital."""
+well-argued wish can grow your grammar. Say so explicitly when a wish needs
+a budget or capital decision: buying data, spending the lockbox shot,
+anything touching live capital."""
 
 _DIRECTOR_SCHEMA = {
     "type": "object",
