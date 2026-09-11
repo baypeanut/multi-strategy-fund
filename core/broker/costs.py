@@ -19,6 +19,24 @@ from dataclasses import dataclass
 
 BPS = 1e-4
 
+# Pessimistic fallbacks for a name with no stamped ADV/vol inputs: assume the
+# universe ADV floor and a typical daily vol, so the missing-data path still
+# charges impact instead of flattering the fill. A symbol with no volume data is
+# more likely to be illiquid than average, and illiquid names carry the largest
+# real impact, so absent must not mean free (E48d).
+#
+# Defined HERE, once. Until 2026-08-11 these were three separate literal pairs -
+# runtime/live.py, backtest/engine.py and scripts/cost_calibration.py - each
+# carrying a comment promising it matched the others ("kept in sync
+# deliberately", "MUST match runtime/live.py") and nothing enforcing it.
+# Measured: moving any ONE copy alone kept the suite green, so the backtest and
+# the live book could have been charging different prices for the same missing
+# input, silently. That is precisely the "a backtest that costs trades
+# differently from the live book is not measuring the live book" failure those
+# comments warned about.
+FALLBACK_ADV = 50e6
+FALLBACK_DVOL = 0.02
+
 
 @dataclass
 class CostParams:

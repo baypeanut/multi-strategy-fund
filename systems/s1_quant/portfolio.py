@@ -117,7 +117,37 @@ def construct_signal_portfolio(
         w = w * (target_vol / pv)
 
     # per-name cap then gross clip
-    w = w.clip(lower=-max_position, upper=max_position)
+    #
+    # E64. The clip DESTROYS the market-neutrality step 2 established, and
+    # nothing used to restore it. Measured on the live book 2026-08-18: the S1
+    # equity sleeve left here at net -0.0555 on gross 0.2038 - 27% of gross net
+    # SHORT - despite market_neutral=True. Loosening max_position to 0.25 took
+    # the net to exactly 0.0, which is the proof that the clip and not the
+    # signals was the cause.
+    #
+    # Worse than it looks, because the caller then scales the book UP to reach
+    # the vol target, magnifying the imbalance instead of correcting it: -0.044
+    # became -0.255 on the live merged book. S1, the CONTROL arm of the
+    # registered experiment, was running a 23% net short in a market that rose
+    # 3.74% over the same window, at a beta of -0.14, with nobody having chosen
+    # that exposure.
+    #
+    # Fix: alternate demean and clip until both hold. One pass is not enough -
+    # demeaning after a clip can push a name back over the cap - and it
+    # converges because each demean shifts a bounded vector by its own mean.
+    # Capped at 20 iterations to guarantee termination; the residual net is
+    # asserted small in tests rather than assumed.
+    for _ in range(20):
+        w = w.clip(lower=-max_position, upper=max_position)
+        if not (market_neutral and len(w) > 1):
+            break
+        drift = w.mean()
+        if abs(drift) * len(w) < 1e-9:
+            break
+        w = w - drift
+    if market_neutral and len(w) > 1:
+        w = w.clip(lower=-max_position, upper=max_position)
+
     gross = w.abs().sum()
     if gross > max_gross:
         w = w * (max_gross / gross)

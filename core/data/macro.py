@@ -1,4 +1,4 @@
-"""Macro data provider (free) - FRED CSV endpoint, no API key required.
+"""Macro data provider (free) — FRED CSV endpoint, no API key required.
 
 Used for regime indicators (VIX, term structure proxies, rates). The
 fredgraph.csv endpoint is a public download that returns a date/value series.

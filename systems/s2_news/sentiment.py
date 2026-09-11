@@ -1,8 +1,8 @@
-"""Sentiment scoring - pluggable, free by default.
+"""Sentiment scoring — pluggable, free by default.
 
 Two scorers:
 - LexiconScorer: deterministic finance-sentiment word lists (Loughran-McDonald
-  style subset). Offline, $0, reproducible - the default and the backtest scorer.
+  style subset). Offline, $0, reproducible — the default and the backtest scorer.
 - OllamaScorer: optional, calls a LOCAL Ollama model (also $0, just electricity)
   for nuance. Used live if available; falls back to the lexicon.
 
@@ -90,7 +90,7 @@ _SCORE_SCHEMA = {
 
 
 class AnthropicScorer:
-    """Frontier scorer via the official Anthropic SDK (Haiku by default
+    """Frontier scorer via the official Anthropic SDK (Haiku by default —
     headline classification is exactly its job at ~pennies/day).
 
     Activated when ANTHROPIC_API_KEY exists; every failure falls back to the
@@ -133,6 +133,29 @@ class AnthropicScorer:
                 output_config={"format": {"type": "json_schema", "schema": _SCORE_SCHEMA}},
                 messages=[{"role": "user", "content": f"Headline: {text}"}],
             )
+            # E63f. Measured, not estimated. `.usage` was in hand on every
+            # call in this repo and discarded everywhere, which is why the
+            # $30 night was invisible and why a previous session guessed $11
+            # and was wrong by 3x. Tokens are a measurement; dollars are a
+            # measurement times a price the owner declares in config.
+            u = getattr(response, "usage", None)
+            # E65. last_usage alone UNDERCOUNTS. TieredScorer calls this
+            # scorer up to llm_budget times per tick and the runtime reads the
+            # attribute once, so only the final call was ever counted:
+            # 264 calls showed 5,472 input tokens, i.e. 20.7 tokens per call,
+            # which no headline prompt can be. usage_total accumulates so the
+            # runtime can drain it and the measurement matches the invoice.
+            _u = getattr(self, "usage_total", None) or {"input_tokens": 0,
+                                                        "output_tokens": 0}
+            _u = {"input_tokens": _u["input_tokens"] + int(getattr(u, "input_tokens", 0) or 0),
+                  "output_tokens": _u["output_tokens"] + int(getattr(u, "output_tokens", 0) or 0),
+                  "model": self.model} if u is not None else _u
+            self.usage_total = _u
+            self.last_usage = {
+                "input_tokens": int(getattr(u, "input_tokens", 0) or 0),
+                "output_tokens": int(getattr(u, "output_tokens", 0) or 0),
+                "model": self.model,
+            } if u is not None else None
             if response.stop_reason == "refusal":
                 raise ValueError("refused")
             payload = json.loads(next(b.text for b in response.content if b.type == "text"))

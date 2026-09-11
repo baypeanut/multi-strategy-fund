@@ -4,7 +4,7 @@ state.json is the fund's ONLY accounting record; research/registry.json and
 RESULTS.jsonl are the research armor's append-only ledgers. They all live on
 one box. This script snapshots them into a timestamped tar.gz under
 data/backups/, prunes old snapshots, and (optionally) pushes the archive
-off-box via a user-configured shell command (rclone / rsync / scp - anything
+off-box via a user-configured shell command (rclone / rsync / scp — anything
 that accepts the archive path). Secrets are excluded BY CONSTRUCTION: a file
 named .env can never enter an archive, so off-box copies cannot leak keys.
 
@@ -71,7 +71,7 @@ def update_equity_ledger(state_path: Path = ROOT / "data" / "state.json",
     """Append each COMPLETED day's closing value per series to the ledger.
 
     Reads state.json (read-only) and extracts, per series and per UTC date,
-    the LAST mark of that date - the close. Series are the books of
+    the LAST mark of that date — the close. Series are the books of
     state['equity_history'] (name kept as-is), state['benchmark'] as 'bench',
     and each key k of state['common_idx_history'] as 'common_<k>'.
 
@@ -93,7 +93,7 @@ def update_equity_ledger(state_path: Path = ROOT / "data" / "state.json",
         if not isinstance(state, dict):
             return 0                      # wrong shape
 
-        # {series: {date: value}} - later entries of the same date overwrite
+        # {series: {date: value}} — later entries of the same date overwrite
         # earlier ones, so what survives is that date's closing value.
         closes: dict[str, dict[str, float]] = {}
 
@@ -126,7 +126,7 @@ def update_equity_ledger(state_path: Path = ROOT / "data" / "state.json",
                     _absorb(f"common_{k}", entries)
 
         # What the ledger already holds. Blank/corrupt/non-dict lines are
-        # tolerated and left untouched - the file is never rewritten.
+        # tolerated and left untouched — the file is never rewritten.
         seen: set[tuple[str, str]] = set()
         if ledger_path.exists():
             try:
@@ -174,7 +174,7 @@ def make_archive(root: Path = ROOT, out_dir: Path = BACKUP_DIR,
     """Snapshot the ledgers into a timestamped tar.gz.
 
     Missing files are skipped silently (a fresh box has no RESULTS.jsonl
-    yet); anything named .env is refused even if explicitly listed - an
+    yet); anything named .env is refused even if explicitly listed — an
     off-box archive must never become a secrets leak.
     """
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -205,7 +205,7 @@ def push_offbox(archive: Path, remote_cmd: str | None = None) -> bool:
     """Run the configured off-box push command with {archive} substituted.
 
     Not configured -> no-op (local-only backup). Failure alerts via Telegram
-    but never raises - a broken remote must not break the local snapshot.
+    but never raises — a broken remote must not break the local snapshot.
     """
     cfg = CONFIG.get("backup", {}) or {}
     cmd = remote_cmd if remote_cmd is not None else cfg.get("remote_cmd")

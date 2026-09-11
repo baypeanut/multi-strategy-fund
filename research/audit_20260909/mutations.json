@@ -1,0 +1,58 @@
+[
+  {
+    "mutation": "event_delay_drastic",
+    "file": "research/primitives.py",
+    "caught": true,
+    "exit_code": 1,
+    "summary": "1 failed in 0.75s"
+  },
+  {
+    "mutation": "event_delay_subtle",
+    "file": "research/primitives.py",
+    "caught": true,
+    "exit_code": 1,
+    "summary": "1 failed in 0.71s"
+  },
+  {
+    "mutation": "event_delay_literal_preserving",
+    "file": "research/primitives.py",
+    "caught": true,
+    "exit_code": 1,
+    "summary": "1 failed in 0.77s"
+  },
+  {
+    "mutation": "dsr_single_trial_guard",
+    "file": "backtest/metrics.py",
+    "caught": true,
+    "exit_code": 1,
+    "summary": "1 failed in 0.74s"
+  },
+  {
+    "mutation": "hac_denominator",
+    "file": "backtest/metrics.py",
+    "caught": true,
+    "exit_code": 1,
+    "summary": "1 failed in 0.69s"
+  },
+  {
+    "mutation": "cancel_acknowledgement",
+    "file": "core/broker/ibkr_broker.py",
+    "caught": true,
+    "exit_code": 1,
+    "summary": "1 failed in 0.48s"
+  },
+  {
+    "mutation": "borrow_accounting",
+    "file": "backtest/engine.py",
+    "caught": true,
+    "exit_code": 1,
+    "summary": "1 failed in 0.68s"
+  },
+  {
+    "mutation": "empty_book_provider_bypass",
+    "file": "runtime/live.py",
+    "caught": true,
+    "exit_code": 1,
+    "summary": "1 failed, 1 passed in 0.71s"
+  }
+]

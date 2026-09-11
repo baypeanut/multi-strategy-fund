@@ -1,5 +1,5 @@
 # ============================================================
-# Multi-Strategy Systematic Fund - Configuration
+# Multi-Strategy Systematic Fund — Configuration
 # Proof phase: $3M paper book, design framed for $100M mandate.
 # ============================================================
 
@@ -14,66 +14,104 @@ allocation:
   equities: 0.80
   crypto: 0.20
 
-# Risk-budget split across the four books (risk, not capital)
 # `enabled` is a real kill switch for every book (E47). It was not: S1-S4's
 # flags were unread while the books traded, so the config claimed three were
 # off. Off now means the book goes flat and keeps being marked.
 systems:
-  s1_quant:        { risk_weight: 0.33, enabled: true }
-  s2_news:         { risk_weight: 0.33, enabled: true }
-  s3_llm:          { risk_weight: 0.33, enabled: true }
-  s4_combined:     { risk_weight: 1.00, enabled: true }
-  # S5 - forward shadow of the CONFIRMED 8k-drift edge (RESEARCH_LOG E18).
+  s1_quant:        { enabled: true }
+  s2_news:         { enabled: true }
+  s3_llm:          { enabled: true }
+  s4_combined:     { enabled: true }
+  # S5 — forward shadow of the CONFIRMED 8k-drift edge (RESEARCH_LOG E18).
   # Standalone event-driven sleeve, NOT part of the S4 ensemble. ENABLED
-  # 2026-07-26 (E35): the forward-OOS clock is now RUNNING and irreversible
+  # 2026-07-26 (E35): the forward-OOS clock is now RUNNING and irreversible —
   # every marked day is evidence on the fund's only confirmed edge. "Zero
-  # further optimization" - params below are the confirmed spec, never tuned.
-  s5_event:        { risk_weight: 0.00, enabled: true }
+  # further optimization" — params below are the confirmed spec, never tuned.
+  s5_event:        { enabled: true }
 
-# S5 confirmed-spec parameters (do not tune - see E18 / the lockbox one-shot)
+# S5 confirmed-spec parameters (do not tune — see E18 / the lockbox one-shot)
 s5:
   entry_lag: 2                    # calendar-day offset to entry (snapped to bar)
   exit_lag: 10                    # calendar-day offset to exit
   min_units: 4                    # breadth guard (matches calendar_time_daily)
   n_names: 500                    # full universe, as confirmed
 
-# IBKR paper-execution mirror (E24) - S4's liquid equity core -> real fills
+# IBKR paper-execution mirror (E24) — S4's liquid equity core -> real fills
 # on the SIMULATED (DU*) account. Purpose: execution-realism data (real
 # queue-at-open fills, commissions) to calibrate the modeled cost surface.
 # The internal $3M books stay canonical; weights are dimensionless and are
 # applied to IBKR's own ~$1M NAV. The broker module hard-refuses any account
-# not starting with "DU" - it can never touch a live account. At real money,
+# not starting with "DU" — it can never touch a live account. At real money,
 # human order confirmation gets inserted in core/broker/ibkr_broker.py.
-# Broker mirror. A paper account at a real broker holds part of the S4 book so
-# modeled fills can be checked against what a venue actually does. Off by
-# default: a fresh clone should never reach a broker until someone means it.
 ibkr:
-  enabled: false
-  execute: false                  # false = dry-run (plan + log, no orders)
+  enabled: true
+  execute: true                   # false = dry-run (plan + log, no orders)
   host: 127.0.0.1
   port: 4002
   client_id: 7
-  account: DU0000000              # must match AND start with DU (enforced)
+  account: DU000000              # must match AND start with DU (enforced)
   top_n: 100                      # liquid-core slice of S4's equity book
   min_trade_usd: 200              # dust filter (2bp of $1M)
   max_orders_per_sync: 150        # fuse: abort sync if plan exceeds this
   session_only: true              # E40: sync ONLY while US cash is open. An
                                   # overnight plan commits full-size DAY orders
                                   # to a stale target that the first RTH
-                                  # rebalance revises - ~85% of the opening
+                                  # rebalance revises — ~85% of the opening
                                   # position was reversed one sync later.
                                   # A halt-flatten is exempt (risk control).
   limit_buffer: 0.015             # marketable-limit: last close ±1.5% (paper
                                   # accounts reject MKT orders w/o data subs;
                                   # limits also bound slippage for free)
 
-# Agent governance. `mode` is the cage every agent runs inside: the broker
-# refuses to arm anything but a paper account while this reads paper_flexible,
-# and flipping it is an owner decision, never an agent's.
-agent_governance:
+# Agent autonomy (E30) — the Staff-Engineer lane, FULL AUTHORITY.
+# The agent reads everything, writes proposals, and applies them ITSELF: no
+# human gate on any path. Owner decision 2026-07-24, made with the one-way-door
+# risks (lockbox shot, pre-registration clock, live orders) explicitly on the
+# table. Safety now rests on two mechanical things only:
+#   1. apply_proposal runs the full pytest suite and auto-rolls-back on red
+#   2. every applied proposal is its own git commit -> granular `git revert`
+# Flip mode -> real_money_locked at go-live to shut the whole lane with one line.
+agent_autonomy:
   mode: paper_flexible            # paper_flexible | real_money_locked
+  engineer_enabled: false        # OFF 2026-08-11, head quant's call. The systemd
+                                  # timer was already disabled after the spend
+                                  # surprise, but that is OS state this repo cannot
+                                  # assert. Second lock, and it travels with the code.
+                                  # Re-enabling needs dollar accounting first: `.usage`
+                                  # appears in no source file, so a repeat of the $30
+                                  # night would be undetectable.
+  engineer_pipeline: true         # E34: plan(Fable) -> code(Opus 5) -> review(Fable)
+                                  # gate before apply; false = legacy single call
+  auto_apply: true                # E30: agent applies its own passing proposals
+  auto_commit: true               # one git commit per applied proposal
+  auto_restart: true              # E34: restart paper-trader after an applied
+                                  # runtime/core/dashboard change (closes the E33
+                                  # 8h dormant-fix gap; narrow sudoers rule)
+  engineer_sessions_per_day: 4    # E44: was hardcoded to 1 — the real throughput
+                                  # lever, and the one E41 forgot to open. The
+                                  # timer fires nightly; extra sessions are for
+                                  # working a backlog or re-running after a fix.
+  engineer_max_rounds: 4          # E48: the lane works ROUNDS until it settles
+                                  # rather than doing one thing and withdrawing.
+                                  # Each round rebuilds context from disk, so a
+                                  # round can build on the previous round's own
+                                  # commits. Capped by the session budget above.
+  engineer_barren_rounds: 2       # consecutive rounds with nothing applied
+                                  # before the lane gives up for the night. A
+                                  # clean resubmit after a rejection is a real
+                                  # pattern (E23/E24), so 1 is too impatient.
+  max_pending_proposals: 4        # backpressure (rarely binds — auto_apply drains)
+  max_proposals_per_night: 3      # E41: owner opened the budget. Specs are
+                                  # implemented by CONCURRENT Opus 5 engineers
+                                  # and must not share files, so this is a cap
+                                  # on independent workstreams, not on ambition:
+                                  # the prompt asks for ONE complete, family-
+                                  # sweeping, verified fix over three partial
+                                  # ones. Cost ~$9-12/night at max/xhigh effort.
+  protected_paths: []             # E30: emptied by owner decision. Was harness.py,
+                                  # governor.py, costs.py. Re-add to restore gating.
 
-# Independent watchdog (cron, outside the trading process). E34: self-healing
+# Independent watchdog (cron, outside the trading process). E34: self-healing —
 # a wedged Gateway is restarted by the watchdog itself, once per realert window.
 watchdog:
   auto_restart_gateway: true
@@ -86,7 +124,6 @@ risk:
   max_position: 0.05              # <=5% NAV per name
   max_sector: 0.25
   liquidity_adv_cap: 0.10         # position <= 10% of 20d ADV
-  kelly_fraction: 0.25
   # Drawdown circuit breakers (peak-to-trough)
   dd_gate_1: -0.10                # halve sizing
   dd_gate_2: -0.15                # halt new risk, go cash, human review
@@ -106,7 +143,7 @@ costs:
     impact_coef: 0.12
     borrow_annual_bps: 0.0        # spot only in proof phase
 
-# LLM brains - activation is automatic by key/service presence:
+# LLM brains — activation is automatic by key/service presence:
 #   ANTHROPIC_API_KEY in .env  -> AnthropicPM/Scorer (frontier)
 #   ollama running (enabled)   -> local fallback
 #   neither                    -> deterministic heuristic/lexicon
@@ -114,16 +151,25 @@ llm:
   enabled: true                     # ollama fallback on/off
   model: "qwen2.5:3b-instruct"      # ollama model
   host: "http://localhost:11434"
-  s3_model: "claude-opus-5"        # S3 PM - frontier judgment. E50: same $5/$25
+  s3_model: "claude-opus-5"        # S3 PM — frontier judgment. E50: same $5/$25
                                     # as opus-4-8, one generation better. Changed AT
                                     # the E49 clock reset; a model swap costs a full
                                     # reset of the paired test, so it rides along.
   s2_model: "claude-haiku-4-5"      # S2 headline scoring (pennies; Haiku is the right tool here)
   # Spend guards (hard daily caps; beyond them the fallback chain takes over)
+  # Published list prices, $ per million tokens. These are an OWNER INPUT, not
+  # a measurement: the fund measures tokens exactly and multiplies by whatever
+  # is declared here. A model with no price listed is reported in tokens only
+  # and contributes nothing to the dollar total, because inventing a number is
+  # how the last spend estimate came out 3x low.
+  prices_usd_per_mtok:
+    claude-opus-5:    { input: 5.0,  output: 25.0 }
+    claude-haiku-4-5: { input: null, output: null }
+
   max_pm_calls_per_day: 16          # S3 Anthropic decisions/day (~$8/wk headroom)
   max_scorer_calls_per_day: 400     # S2 Anthropic headline scores/day
 
-# Information-gated rebalancing: books only re-decide on NEW information
+# Information-gated rebalancing: books only re-decide on NEW information —
 # a new daily bar, or a material shift in the news signal. Otherwise weights
 # are held: no churn, no turnover cost, no LLM call. (Head-quant audit fix:
 # hourly micro-rebalancing of decaying news scores was costing ~1.5-2%/yr in

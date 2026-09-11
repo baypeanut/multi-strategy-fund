@@ -1,7 +1,7 @@
-"""IBKR paper-execution mirror (E24) - S4's liquid equity core, real fills.
+"""IBKR paper-execution mirror (E24) — S4's liquid equity core, real fills.
 
 The internal $3M paper books remain the canonical experiment (their history IS
-the horse race - never rescale them mid-run). This module mirrors S4's FINAL
+the horse race — never rescale them mid-run). This module mirrors S4's FINAL
 post-governor equity weights onto the real IBKR paper account (DU*, ~$1M) to
 buy execution realism: real queue-at-open fills and real commission data to
 calibrate the modeled cost surface (E19/E23).
@@ -21,7 +21,7 @@ Deliberate scope (head-quant, 2026-07-20):
   The runtime only hands us post-governor/post-halt weights, so a halt latch
   arrives here as an all-zero book -> full flatten.
 At real money, human order confirmation gets inserted here (see
-agent_governance / real_money_locked in config.yaml).
+agent_autonomy / real_money_locked in config.yaml).
 
 `ib_async` is imported lazily so the pure planner stays testable offline.
 """
@@ -40,7 +40,7 @@ class PlannedOrder:
 
 
 class MirrorAborted(Exception):
-    """Raised when a safety rail trips - no orders may be placed."""
+    """Raised when a safety rail trips — no orders may be placed."""
 
 
 def ib_symbol(sym: str) -> str:
@@ -88,7 +88,7 @@ def book_view(
 ) -> dict:
     """Dashboard-ready IBKR book: actual shares/MV/weights vs S4 slice targets.
 
-    Pure function - no network. Used by sync/refresh so the frontend can show
+    Pure function — no network. Used by sync/refresh so the frontend can show
     the same numbers the broker account holds, side-by-side with intended w.
     """
     targets = slice_targets(target_weights, top_n=top_n, max_position=max_position)
@@ -150,7 +150,7 @@ def plan_equity_mirror(
     Selection: equities only, top_n by |w|; per-name |w| clipped to
     max_position (defense in depth); slice gross must be <= max_gross.
     Held names outside the slice get exit orders. Dust (< min_trade_usd)
-    is skipped - except full exits with no price, which are always sent
+    is skipped — except full exits with no price, which are always sent
     (quantity is known from the position itself).
     """
     targets = slice_targets(target_weights, top_n=top_n, max_position=max_position)
@@ -170,7 +170,7 @@ def plan_equity_mirror(
         w = targets.get(sym, 0.0)
         px = prices.get(sym)
         if w != 0.0 and (px is None or px <= 0):
-            skipped_no_price.append(sym)      # can't size an entry - skip
+            skipped_no_price.append(sym)      # can't size an entry — skip
             continue
         tgt = int((w * nav) / px) if w != 0.0 else 0
         delta = tgt - cur
@@ -185,7 +185,7 @@ def plan_equity_mirror(
             quantity=abs(delta), est_price=px, est_notional=notional))
 
     if len(orders) > max_orders:
-        raise MirrorAborted(f"{len(orders)} orders > fuse {max_orders} - refusing")
+        raise MirrorAborted(f"{len(orders)} orders > fuse {max_orders} — refusing")
 
     info = {"slice_names": len(targets), "slice_gross": round(gross, 4),
             "skipped_dust": skipped_dust, "skipped_no_price": skipped_no_price,
@@ -207,18 +207,30 @@ class IBKRBroker:
         self.limit_buffer = float(cfg.get("limit_buffer", 0.015))
         self._ib = None
         self._errors: list[str] = []
+        self.cancel_event = None
+
+    def _check_cancelled(self) -> None:
+        if self.cancel_event is not None and self.cancel_event.is_set():
+            raise MirrorAborted("broker job expired; no further orders authorized")
 
     # --- connection ------------------------------------------------------
     def connect(self):
         from ib_async import IB
         ib = IB()
+        # Bound each synchronous request as well as the outer runtime job.
+        ib.RequestTimeout = 15
         ib.errorEvent += self._on_error
-        ib.connect(self.host, self.port, clientId=self.client_id, timeout=25)
-        accounts = ib.managedAccounts()
-        if not accounts:
+        try:
+            self._check_cancelled()
+            ib.connect(self.host, self.port, clientId=self.client_id, timeout=25)
+            self._check_cancelled()
+            accounts = ib.managedAccounts()
+            if not accounts:
+                raise MirrorAborted("no managed accounts returned")
+            assert_paper_account(accounts[0], self.account)
+        except Exception:
             ib.disconnect()
-            raise MirrorAborted("no managed accounts returned")
-        assert_paper_account(accounts[0], self.account)
+            raise
         self._ib = ib
         return ib
 
@@ -268,19 +280,22 @@ class IBKRBroker:
         """Marketable LIMIT orders at last close ± buffer.
 
         Paper accounts without market-data subscriptions REJECT market orders
-        outright (IBKR error 202: the simulator cannot price them) - learned
+        outright (IBKR error 202: the simulator cannot price them) — learned
         live on night one. Marketable limits solve that AND bound slippage
         for free; anything unfilled shows up as a delta again at the next
         sync, so the mirror is self-healing. Price-less exits (halt-flatten
-        with degraded data) fall back to MKT and may 202 - reported, and
+        with degraded data) fall back to MKT and may 202 — reported, and
         retried by the next sync.
         """
         from ib_async import LimitOrder, MarketOrder, Stock
         placed, failed = 0, []
         for o in orders:
+            self._check_cancelled()
             try:
                 contract = Stock(ib_symbol(o.symbol), "SMART", "USD")
                 q = self._ib.qualifyContracts(contract)
+                # Qualification may have outlived the runtime's deadline.
+                self._check_cancelled()
                 if not q:
                     failed.append(f"{o.symbol}: unqualified")
                     continue
@@ -293,8 +308,12 @@ class IBKRBroker:
                     order = MarketOrder(o.action, o.quantity)
                 order.tif = "DAY"
                 order.outsideRth = False
+                order.account = self.account
+                self._check_cancelled()
                 self._ib.placeOrder(q[0], order)
                 placed += 1
+            except MirrorAborted:
+                raise
             except Exception as exc:
                 failed.append(f"{o.symbol}: {type(exc).__name__}: {exc}")
         self._ib.sleep(3)          # let order-state and error msgs flush
@@ -302,32 +321,42 @@ class IBKRBroker:
                 "api_errors": self._errors[:20]}
 
     def cancel_open_orders(self) -> int:
-        """Cancel every working order on this account; return how many (E37).
+        """Prove the previous order generation is gone before replanning.
 
-        Only orders for the mirror's own account are touched. Fail-soft: the
-        mirror must still sync if cancellation is unavailable - a failure here
-        degrades to the old stacking behavior for one pass, never to a dead
-        loop or an unplanned position.
+        Earlier runtime versions rotated client IDs. The local openTrades cache does
+        not establish that the account has no old orders. Ask all clients and
+        refuse a new generation if any own-account order cannot be cancelled
+        or remains working. Other accounts are neither cancelled nor blocked.
         """
         n = 0
         try:
-            for trade in self._ib.openTrades():
+            self._check_cancelled()
+            for trade in self._ib.reqAllOpenOrders():
+                self._check_cancelled()
                 order, contract = trade.order, trade.contract
                 if getattr(order, "account", None) not in (None, "", self.account):
                     continue
                 if not trade.isActive():
                     continue
-                try:
-                    self._ib.cancelOrder(order)
-                    n += 1
-                except Exception as exc:
-                    self._errors.append(
-                        f"cancel {getattr(contract, 'symbol', '?')}: "
-                        f"{type(exc).__name__}: {exc}")
+                owner = getattr(order, "clientId", None)
+                if owner is not None and owner != self.client_id:
+                    raise MirrorAborted(
+                        f"working {getattr(contract, 'symbol', '?')} order belongs "
+                        f"to client {owner}; refuse duplicate generation")
+                self._ib.cancelOrder(order)
+                n += 1
             if n:
                 self._ib.sleep(2)          # let cancellations settle before snapshot
+            remaining = [t for t in self._ib.reqAllOpenOrders()
+                         if getattr(t.order, "account", None) in (None, "", self.account)
+                         and t.isActive()]
+            if remaining:
+                raise MirrorAborted(f"{len(remaining)} orders still working after cancel")
         except Exception as exc:
             self._errors.append(f"cancel_open_orders: {type(exc).__name__}: {exc}")
+            if isinstance(exc, MirrorAborted):
+                raise
+            raise MirrorAborted(f"cancel verification failed: {exc}") from exc
         return n
 
     # --- orchestration ---------------------------------------------------
@@ -372,6 +401,7 @@ class IBKRBroker:
         self._errors = []
         self.connect()
         try:
+            self._check_cancelled()
             # E37: cancel the previous generation FIRST. The planner sizes
             # deltas against FILLED positions, so a still-live order from an
             # earlier sync is invisible to it and the same delta is ordered
@@ -379,12 +409,13 @@ class IBKRBroker:
             # closed-market night stacked ~9-15 copies of every order; at the
             # 13:30 open they all filled at once and the next sync violently
             # unwound the overshoot. Measured 2026-07-27: $20.25M gross traded
-            # on a $979k NAV (20.7x) for $613k of net repositioning - 97% pure
+            # on a $979k NAV (20.7x) for $613k of net repositioning — 97% pure
             # round-trip. Cancel-then-plan makes at most one generation live,
             # which is what "unfilled shows up as a delta again" always assumed.
             cancelled = self.cancel_open_orders() if execute else 0
             nav, positions = self.snapshot()
             fills = self.recent_fills()
+            self._check_cancelled()
             orders, info = plan_equity_mirror(
                 target_weights, nav, prices, positions,
                 top_n=self.top_n, min_trade_usd=self.min_trade_usd,
@@ -399,6 +430,7 @@ class IBKRBroker:
                 fills = self.recent_fills()
             view = book_view(nav, positions, prices, target_weights,
                              top_n=self.top_n, max_position=max_position)
+            self._check_cancelled()
             return {
                 "last_sync": datetime.now(timezone.utc).isoformat(),
                 "last_refresh": datetime.now(timezone.utc).isoformat(),
@@ -414,7 +446,7 @@ class IBKRBroker:
                     for o in orders[:12]],
                 "failed": result["failed"],
                 "api_errors": result["api_errors"] + self._errors[:20],
-                "fills_today": fills,          # whole day, uncapped - see refresh
+                "fills_today": fills,          # whole day, uncapped — see refresh
                 "n_fills_today": len(fills),
             }
         finally:

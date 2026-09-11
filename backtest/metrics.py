@@ -1,4 +1,4 @@
-"""Performance & overfit statistics - the honest scorecard.
+"""Performance & overfit statistics — the honest scorecard.
 
 Includes the two that matter most for avoiding self-deception:
 - Deflated Sharpe Ratio (DSR): penalizes multiple testing + non-normality.
@@ -71,6 +71,11 @@ def deflated_sharpe_ratio(
     n = len(r)
     if n < 8 or n_trials < 1:
         return 0.0
+    # A single pre-specified trial has no selection penalty. The extreme-value
+    # approximation below is undefined at N=1 (Phi^-1(0) = -inf), which used
+    # to turn even a losing strategy into DSR=1.
+    if n_trials == 1:
+        return probabilistic_sharpe_ratio(r, sr_benchmark=0.0)
     sr = sharpe_ratio(returns, annualize=False)
     if sr_trials_std is None:
         g3 = float(r.skew())
@@ -89,7 +94,7 @@ def paired_test(returns_a: pd.Series, returns_b: pd.Series, lags: int | None = N
     """Diebold-Mariano-style paired comparison of two return streams.
 
     Tests H0: E[r_a - r_b] = 0 on the DAILY difference series with Newey-West
-    (HAC) standard errors - the only honest way to compare two highly
+    (HAC) standard errors — the only honest way to compare two highly
     correlated books (two separate Sharpes are statistically meaningless).
 
     Returns dict: mean_daily_bps, t_stat, p_value, n, ci95_bps (mean +/-).
@@ -108,7 +113,9 @@ def paired_test(returns_a: pd.Series, returns_b: pd.Series, lags: int | None = N
     lrv = gamma0
     for lag in range(1, min(L, n - 1) + 1):
         w = 1.0 - lag / (L + 1.0)
-        cov = float(np.mean(e[lag:] * e[:-lag]))
+        # Every autocovariance uses the same n denominator. Dividing by
+        # n-lag can destroy positive semidefiniteness of the Bartlett kernel.
+        cov = float(np.dot(e[lag:], e[:-lag]) / n)
         lrv += 2.0 * w * cov
     lrv = max(lrv, 1e-18)
     se = np.sqrt(lrv / n)

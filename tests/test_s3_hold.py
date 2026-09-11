@@ -1,5 +1,5 @@
 """E15b: when the PM budget is exhausted, S3 HOLDS (never falls to a weaker
-brain inside the final-config window - attribution must stay Opus-only)."""
+brain inside the final-config window — attribution must stay Opus-only)."""
 import numpy as np
 import pandas as pd
 import pytest

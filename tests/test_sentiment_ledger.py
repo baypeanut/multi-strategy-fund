@@ -1,7 +1,7 @@
-"""Persistent sentiment ledger (H1 stage 1 - director wish 2026-07-19): every
+"""Persistent sentiment ledger (H1 stage 1 — director wish 2026-07-19): every
 fresh universe-tagged headline's score must be appended to an append-only
 JSONL that outlives the 7-day operational buffer, so future event studies can
-condition on filing-adjacent tone. All offline - feeds are monkeypatched at
+condition on filing-adjacent tone. All offline — feeds are monkeypatched at
 systems.s2_news.feeds, no network, deterministic lexicon scoring."""
 import json
 from datetime import datetime
@@ -55,7 +55,7 @@ def test_scored_headlines_persisted_with_source(rt, monkeypatch):
     ts, sym, score, weight, source = by_sym["AAPL"]
     assert ts == NOW.isoformat() and score > 0 and weight > 0
     assert source == "yahoo_rss"
-    # neutral headline persisted too - 'no tone' is itself data for H1
+    # neutral headline persisted too — 'no tone' is itself data for H1
     assert by_sym["MSFT"][2] == 0.0 and by_sym["MSFT"][3] == 0.0
 
 
@@ -77,7 +77,7 @@ def test_ledger_accumulates_across_ticks(rt, monkeypatch):
 
 
 def test_operational_store_semantics_unchanged(rt, monkeypatch):
-    # zero-weight items enter the LEDGER but must stay OUT of s2_scored
+    # zero-weight items enter the LEDGER but must stay OUT of s2_scored —
     # the operational path (decayed aggregate, rebalance gate) is untouched
     _wire(monkeypatch, [
         _item("u1", "AAPL", "AAPL beats estimates, record profit"),

@@ -1,9 +1,9 @@
 """IBKR-link staleness pager: the broker calls are bounded and fail-safe, so
-a wedged Gateway degrades silently - observed 2026-07-25, ~15h with no
+a wedged Gateway degrades silently — observed 2026-07-25, ~15h with no
 successful broker read while a halt-flatten could not have reached the paper
 account (E29 gap). The independent watchdog cron must page, dedupe re-pages,
 send one all-clear on recovery, keep its ledger keys disjoint from the tick
-pager's, and stay silent when the mirror is disabled. All offline
+pager's, and stay silent when the mirror is disabled. All offline —
 send_telegram captured, clock injected, no network."""
 import json
 from datetime import datetime, timedelta, timezone
@@ -51,7 +51,7 @@ def state_file(tmp_path, *, refresh_hours_ago=None, sync_hours_ago=None,
 
 
 def test_disabled_mirror_is_silent(tmp_path, alerts):
-    # conftest leaves ibkr.enabled False for the offline suite - the check
+    # conftest leaves ibkr.enabled False for the offline suite — the check
     # must be a no-op even against a wildly stale link
     out = W.check_ibkr(state_file(tmp_path, refresh_hours_ago=15),
                        tmp_path / "wd.json", now=NOW)

@@ -1,6 +1,6 @@
 """Stale-tick pager (E27 follow-up): the independent cron monitor must page
 on a wedged-but-alive loop, dedupe re-pages, and send one recovery all-clear.
-All offline - send_telegram is captured, the clock is injected."""
+All offline — send_telegram is captured, the clock is injected."""
 import json
 from datetime import datetime, timedelta, timezone
 
@@ -35,7 +35,7 @@ def test_fresh_tick_is_silent(tmp_path, alerts):
 
 
 def test_stale_tick_pages(tmp_path, alerts):
-    # 5h stale vs the 150-min default threshold - the E27 scenario
+    # 5h stale vs the 150-min default threshold — the E27 scenario
     out = W.check(state_file(tmp_path, 300), tmp_path / "wd.json", now=NOW)
     assert out["stale"] and out["alerted"]
     assert alerts and "STALE TICK" in alerts[0]

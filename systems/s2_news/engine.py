@@ -1,4 +1,4 @@
-"""NewsEngine - System 2 (LLM as fast reader).
+"""NewsEngine — System 2 (LLM as fast reader).
 
 Pipeline: filter-to-universe -> dedup -> score -> time-decay aggregate ->
 cross-sectional signal. The LLM (or lexicon) is a *reader* turning text into a

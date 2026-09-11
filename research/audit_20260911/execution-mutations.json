@@ -1,0 +1,17 @@
+[
+  {
+    "mutation": "stable_writer",
+    "caught": true,
+    "summary": "1 failed in 0.82s"
+  },
+  {
+    "mutation": "expired_order_guard",
+    "caught": true,
+    "summary": "1 failed in 0.80s"
+  },
+  {
+    "mutation": "single_broker_worker",
+    "caught": true,
+    "summary": "1 failed in 0.84s"
+  }
+]

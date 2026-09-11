@@ -1,12 +1,12 @@
-"""Stale-tick pager (E27 follow-up) - a wedged loop must page within ~2h.
+"""Stale-tick pager (E27 follow-up) — a wedged loop must page within ~2h.
 
 E27's incident: the tick loop froze ~8 HOURS on a blocked broker socket while
-systemd showed the service `active` - a live-but-wedged process is invisible
+systemd showed the service `active` — a live-but-wedged process is invisible
 to Restart= policies and the 26h fund-watchdog bound is an order of magnitude
 too loose for an hourly loop. This script is the independent detector: run
 from cron, it reads data/state.json (the runtime's heartbeat: `last_tick`)
 and fires an URGENT Telegram when the tick is staler than the threshold.
-Independence is the point - a wedged loop cannot be trusted to report its
+Independence is the point — a wedged loop cannot be trusted to report its
 own wedge, so the monitor lives outside the process entirely.
 
 It NEVER writes state.json (the runtime owns that file); its own dedupe
@@ -16,7 +16,7 @@ all-clear. A missing/unreadable state.json also pages: a runtime that never
 started (E25's root-owned-junk crash class) is the same emergency.
 
 Second check (2026-07-25): IBKR-link staleness. The broker calls are bounded
-and fail-safe by design (E27/E29), so a wedged Gateway degrades SILENTLY
+and fail-safe by design (E27/E29), so a wedged Gateway degrades SILENTLY —
 observed live 2026-07-25: no successful broker read from 03:48 onward, every
 2h mirror timing out at 120s and every hourly refresh at 45s, with the
 Gateway's own ~23:45 daily restart the only recovery path. While the link is
@@ -29,9 +29,9 @@ pagers never disturb each other's state.
 
 Third check (2026-07-26): applied-but-not-running code. Under E30 the engineer
 lane applies and commits its own work unattended, but it cannot restart a
-service - so a fix touching runtime/core/dashboard sits DORMANT until a human
+service — so a fix touching runtime/core/dashboard sits DORMANT until a human
 notices. Observed live: P0011 (the fills-ledger data-loss fix) landed 04:43 and
-was still not running at 12:37 - 8h in which the very dataset it rescues went
+was still not running at 12:37 — 8h in which the very dataset it rescues went
 on being destroyed, with the repo, the tests and git all looking perfectly
 healthy. Nothing in the system could see that gap: `systemctl` reports active,
 the tick is fresh, and the code on disk is correct. This check compares the
@@ -112,7 +112,7 @@ def check(state_path: Path = STATE, ledger_path: Path = LEDGER,
     age_min = _tick_age_minutes(state_path, now)
     if age_min is None:
         stale = True
-        detail = f"{state_path} missing/unreadable - runtime heartbeat absent"
+        detail = f"{state_path} missing/unreadable — runtime heartbeat absent"
     else:
         stale = age_min > stale_min
         detail = (f"last tick {age_min:.0f} min ago "
@@ -129,7 +129,7 @@ def check(state_path: Path = STATE, ledger_path: Path = LEDGER,
                 due = True
         if due:
             send_telegram(
-                "⏰ STALE TICK - " + detail
+                "⏰ STALE TICK — " + detail
                 + ". Loop may be wedged while systemd shows 'active' "
                   "(E27 class): check paper-trader / ib-gateway.")
             led["last_alert"] = now.isoformat()
@@ -139,7 +139,7 @@ def check(state_path: Path = STATE, ledger_path: Path = LEDGER,
 
     if led.get("alerting"):
         # one all-clear, then silence until the next incident
-        send_telegram("✅ tick resumed - " + detail)
+        send_telegram("✅ tick resumed — " + detail)
         led["alerting"] = False
         led.pop("last_alert", None)
         _save_ledger(ledger_path, led)
@@ -193,7 +193,7 @@ def check_ibkr(state_path: Path = STATE, ledger_path: Path = LEDGER,
     wedged: page, with the runtime's stamped refresh_error included so the
     human sees WHY without opening the dashboard. Dedupe/recovery mirror the
     tick pager but under namespaced ledger keys. An unreadable state.json is
-    deliberately NOT this check's emergency - the tick pager owns that page.
+    deliberately NOT this check's emergency — the tick pager owns that page.
     """
     now = now or datetime.now(timezone.utc)
     if not (CONFIG.get("ibkr", {}) or {}).get("enabled"):
@@ -209,7 +209,7 @@ def check_ibkr(state_path: Path = STATE, ledger_path: Path = LEDGER,
                 "detail": "state unreadable (tick pager's emergency)"}
     ibk = state.get("ibkr") or {}
     if not ibk:
-        # mirror enabled but never attempted yet (fresh deploy) - not a wedge
+        # mirror enabled but never attempted yet (fresh deploy) — not a wedge
         return {"stale": False, "alerted": False,
                 "detail": "no ibkr state yet"}
 
@@ -241,19 +241,19 @@ def check_ibkr(state_path: Path = STATE, ledger_path: Path = LEDGER,
             # E34 self-healing: two distinct Gateway wedge classes in one week
             # (07-23 clientId hold, 07-25 full unresponsiveness) showed the
             # daily 23:45 restart is not enough. With auto_restart_gateway the
-            # watchdog restarts the unit itself (once per realert window - the
+            # watchdog restarts the unit itself (once per realert window — the
             # same dedupe that bounds the pages bounds the restarts) and the
             # page reports what it did. Off by default in code; enabled in
             # config.yaml so the posture is explicit and revertible.
             note = ""
             if cfg.get("auto_restart_gateway", False):
                 res = _restart_unit("ib-gateway")
-                note = (" Auto-restarted ib-gateway - verifying next pass."
+                note = (" Auto-restarted ib-gateway — verifying next pass."
                         if res.get("ok") else
                         f" Auto-restart FAILED ({str(res.get('error'))[:80]})"
-                        " - manual restart needed.")
+                        " — manual restart needed.")
             send_telegram(
-                "🔌 IBKR LINK STALE - " + detail
+                "🔌 IBKR LINK STALE — " + detail
                 + ". Gateway likely wedged: a halt-flatten cannot reach the "
                   "paper account until it recovers (E29 gap)." + note)
             led["ibkr_last_alert"] = now.isoformat()
@@ -262,7 +262,7 @@ def check_ibkr(state_path: Path = STATE, ledger_path: Path = LEDGER,
         return {"stale": True, "alerted": due, "detail": detail}
 
     if led.get("ibkr_alerting"):
-        send_telegram("✅ IBKR link recovered - " + detail)
+        send_telegram("✅ IBKR link recovered — " + detail)
         led["ibkr_alerting"] = False
         led.pop("ibkr_last_alert", None)
         _save_ledger(ledger_path, led)
@@ -277,7 +277,7 @@ _SERVICE = "paper-trader"
 
 def _service_started_at(service: str = _SERVICE) -> datetime | None:
     """When the running unit started, per systemd. None if unavailable (not a
-    systemd host, or the unit is unknown) - the check then no-ops rather than
+    systemd host, or the unit is unknown) — the check then no-ops rather than
     guessing, since a false 'restart needed' page trains the human to ignore it."""
     import subprocess
     try:
@@ -352,7 +352,7 @@ def check_restart(ledger_path: Path = LEDGER, now: datetime | None = None,
                 due = True
         if due:
             send_telegram(
-                "♻️ RESTART NEEDED - " + detail
+                "♻️ RESTART NEEDED — " + detail
                 + ". An applied fix is NOT in effect until the service reloads: "
                   f"`systemctl restart {service}`.")
             led["restart_last_alert"] = now.isoformat()
@@ -361,7 +361,7 @@ def check_restart(ledger_path: Path = LEDGER, now: datetime | None = None,
         return {"stale": True, "alerted": due, "detail": detail}
 
     if led.get("restart_alerting"):
-        send_telegram("✅ Restart done - " + detail)
+        send_telegram("✅ Restart done — " + detail)
         led["restart_alerting"] = False
         led.pop("restart_last_alert", None)
         _save_ledger(ledger_path, led)

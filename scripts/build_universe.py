@@ -7,7 +7,7 @@ Pipeline:
   3. Rank CS symbols by ADV, take top N (all clear the $50M floor by miles),
      force-include USER_PICKS.
   4. Ticker-details (parallel) -> SIC code -> coarse sector bucket.
-  5. Write data/universe/equities.json - FROZEN until the next config window.
+  5. Write data/universe/equities.json — FROZEN until the next config window.
 
 Run ON THE SERVER (needs POLYGON_API_KEY):  python scripts/build_universe.py
 """
@@ -32,7 +32,7 @@ _REF = ("https://api.polygon.io/v3/reference/tickers?market=stocks&type=CS"
 _DETAILS = "https://api.polygon.io/v3/reference/tickers/{sym}?apiKey={key}"
 
 # Coarse SIC-range -> sector buckets (for the governor's 25% concentration cap;
-# coarse is fine - the cap needs buckets, not GICS precision).
+# coarse is fine — the cap needs buckets, not GICS precision).
 _SIC_BUCKETS = [
     (100, 999, "other"), (1000, 1299, "materials"), (1300, 1399, "energy"),
     (1400, 1499, "materials"), (1500, 1799, "industrials"),

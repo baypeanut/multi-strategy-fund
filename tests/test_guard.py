@@ -1,5 +1,6 @@
 """W2 tests: data-coverage guard must prevent phantom turnover (two-tier era)."""
 import json
+import pickle
 
 import numpy as np
 import pandas as pd
@@ -107,6 +108,83 @@ def test_heavy_degradation_blocks_rebalance(runtime, monkeypatch):
     assert runtime.state["systems"]["s1"]["weights"] == {"AAPL": 0.03, "MSFT": -0.02}
 
 
+# --- cache-served NO-TRADE telemetry (2026-07-31 15:52/16:53/17:55/18:57) ----
+def test_cache_fallback_records_fresh_coverage_and_cache_bar(runtime, monkeypatch):
+    """The fresh fetch's FAILED coverage must survive the cache fallback."""
+    import runtime.live as live_mod
+
+    # cache holds a healthy-looking SPY panel whose last bar is 2026-07-30
+    idx = pd.date_range(end="2026-07-30", periods=60, freq="D")
+    cached_spy = pd.DataFrame({
+        "open": 500.0, "high": 505.0, "low": 495.0,
+        "close": np.linspace(500.0, 550.0, len(idx)), "volume": 1e6,
+    }, index=idx)
+    cached_vix = pd.Series([18.0, 19.0],
+                           index=pd.date_range("2026-07-29", periods=2, freq="D"))
+    runtime.cache_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(runtime.cache_path, "wb") as fh:
+        pickle.dump(({"SPY": cached_spy}, {}, cached_vix), fh)
+
+    # every fresh leg fails: no equities, no crypto, no VIX (fully offline)
+    class StubEquity:
+        def history(self, *a, **k):
+            return {}
+
+    class StubCrypto:
+        def __init__(self, exchange=None):
+            pass
+
+        def history(self, *a, **k):
+            return {}
+
+    class StubMacro:
+        def vix(self):
+            return pd.Series(dtype=float)
+
+    monkeypatch.setattr(live_mod, "make_equity_provider", lambda: StubEquity())
+    monkeypatch.setattr(live_mod, "CryptoDataProvider", StubCrypto)
+    monkeypatch.setattr(live_mod, "MacroDataProvider", StubMacro)
+
+    eq, cx, vix, from_cache = runtime._fetch_heavy()
+    assert from_cache is True
+    assert "SPY" in eq                       # the cached panel was served
+    assert "eq=0%" in runtime._heavy_fresh_desc
+    assert "vix=MISSING" in runtime._heavy_fresh_desc
+    assert runtime._heavy_cache_bar == "2026-07-30"
+
+
+def test_cache_served_incident_names_the_fresh_failure(runtime, monkeypatch):
+    """The NO-TRADE incident must name the failing fresh leg + the cache bar."""
+    light = LightData(bar_date="2026-07-31",
+                      prices={"AAPL": 105.0, "MSFT": 201.0},
+                      eq_cov=1.0, cx_cov=1.0, spy_close=500.0)
+    monkeypatch.setattr(LiveRuntime, "_fetch_light", lambda self: light)
+    monkeypatch.setattr(LiveRuntime, "_ingest_news", lambda self, s, n: None)
+    monkeypatch.setattr(LiveRuntime, "_news_raw",
+                        lambda self, n: pd.Series(dtype=float))
+    monkeypatch.setattr(LiveRuntime, "_should_rebalance",
+                        lambda self, b, r: (True, "test"))
+
+    def fake_heavy(self):
+        # fresh fetch lost the equity provider; the cache is served instead
+        self._heavy_fresh_desc = "eq=3% cx=100% spy=ok vix=MISSING"
+        self._heavy_cache_bar = "2026-07-30"
+        return {}, {}, pd.Series(dtype=float), True
+    monkeypatch.setattr(LiveRuntime, "_fetch_heavy", fake_heavy)
+    monkeypatch.setattr(LiveRuntime, "_run_systems",
+                        lambda self, *a: (_ for _ in ()).throw(AssertionError))
+
+    out = runtime.tick()
+    assert out["no_trade"] is True and out["rebalanced"] is False
+    # the guard still holds the book exactly -> zero turnover
+    assert runtime.state["systems"]["s1"]["weights"] == {"AAPL": 0.03, "MSFT": -0.02}
+    inc = runtime.state["data_incidents"][-1]
+    assert inc["kind"] == "NO-TRADE tick"     # dashboard keys on this
+    assert "eq=3%" in inc["detail"]
+    assert "served cache" in inc["detail"]
+    assert "cache bar 2026-07-30" in inc["detail"]
+
+
 def test_schema_v2_migration(tmp_path):
     old = {
         "nav0": 3e6,
@@ -120,3 +198,80 @@ def test_schema_v2_migration(tmp_path):
     assert rt.state["schema"] == 2
     assert rt.state["data_incidents"] == []
     assert rt.state["ticks"] == 5  # history preserved
+
+
+# --- E63: a name that stopped printing must leave the panel -------------------
+def test_a_delisted_name_is_dropped_from_the_signal_panel():
+    """Reproduces the live case measured on the box 2026-08-10.
+
+    EA last printed 2026-08-04 and NUVL 2026-07-14, and both still carried
+    weight because a 252-day panel computes a fine momentum score from stale
+    prices, so every rebalance re-selected them. EA was 2.40% of S1 and
+    $84.7k gross across s1+s4, marked forever at its final close of 209.70,
+    unmarkable and unexitable.
+
+    The drag was ASYMMETRIC across the registered pair - 2.55% of S1, the
+    control, against 0% of S3 - which injected a measured -0.90 bps/day into
+    the daily S3-S1 difference, 3% of the observed mean.
+    """
+    from runtime.live import MAX_HISTORY_STALENESS_DAYS, LiveRuntime
+
+    def frame(last_day, n=300):
+        idx = pd.date_range(end=last_day, periods=n, freq="D")
+        return pd.DataFrame({
+            "open": 100.0, "high": 101.0, "low": 99.0,
+            "close": np.linspace(100.0, 110.0, n), "volume": 1e6,
+        }, index=idx)
+
+    eq = {
+        "AAPL": frame("2026-08-10"),   # current
+        "MSFT": frame("2026-08-07"),   # Friday, panel is Monday: alive
+        "EA":   frame("2026-08-04"),   # 6 days: delisted
+        "NUVL": frame("2026-07-14"),   # 27 days: long gone
+        "SPY":  frame("2026-08-10"),
+        "DEAD": pd.DataFrame(),        # empty frames are left alone
+    }
+    out = LiveRuntime._drop_stale_names(eq)
+
+    assert "AAPL" in out and "SPY" in out
+    assert "MSFT" in out, (
+        f"a Friday close on a Monday panel is 3 days old and must survive; "
+        f"the threshold is {MAX_HISTORY_STALENESS_DAYS} days")
+    assert "EA" not in out, "EA stopped printing 6 days ago and must leave"
+    assert "NUVL" not in out, "NUVL stopped printing 27 days ago and must leave"
+    assert "DEAD" in out, "an empty frame is a coverage question, not a staleness one"
+
+
+def test_the_staleness_filter_runs_before_the_cache_is_written(runtime, monkeypatch):
+    """A stale name must not be pickled into the panel a later cache-served
+    tick rebalances from. Gating after the cache write would leave the artifact
+    on disk - the same shape as the provider-basis guard having to sit before
+    _fetch_heavy."""
+    import runtime.live as live_mod
+
+    captured = {}
+    def spy_coverage(eq, cx, vix):
+        captured["eq"] = eq
+        return Coverage(equity=1.0, crypto=1.0, spy_ok=True, vix_ok=True)
+
+    # _coverage is a staticmethod; patch it as one or `self` lands in `eq`
+    monkeypatch.setattr(live_mod.LiveRuntime, "_coverage",
+                        staticmethod(spy_coverage))
+    idx_new = pd.date_range(end="2026-08-10", periods=300, freq="D")
+    idx_old = pd.date_range(end="2026-07-14", periods=300, freq="D")
+    mk = lambda i: pd.DataFrame({"open": 1.0, "high": 1.0, "low": 1.0,
+                                 "close": 1.0, "volume": 1e6}, index=i)
+    monkeypatch.setattr(live_mod, "make_equity_provider",
+                        lambda: type("P", (), {
+                            "history": lambda self, syms, period=None: {
+                                "AAPL": mk(idx_new), "NUVL": mk(idx_old)}})())
+    monkeypatch.setattr(live_mod, "CryptoDataProvider",
+                        lambda **k: type("C", (), {"history": lambda self, *a, **kw: {}})())
+    monkeypatch.setattr(live_mod, "MacroDataProvider",
+                        lambda: type("M", (), {"vix": lambda self: pd.Series([1.0])})())
+    runtime._legacy_eq = None
+    runtime._fetch_heavy()
+
+    assert "NUVL" not in captured["eq"], (
+        "the stale name reached _coverage, so it also reached the cache write")
+    assert "AAPL" in captured["eq"]

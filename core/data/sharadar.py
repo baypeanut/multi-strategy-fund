@@ -1,9 +1,9 @@
-"""Sharadar (Nasdaq Data Link) provider - research lane, PIT/survivorship-clean.
+"""Sharadar (Nasdaq Data Link) provider — research lane, PIT/survivorship-clean.
 
 Activated by NASDAQ_DATA_LINK_API_KEY. Used by backtests to fix audit finding
 No. 2 (survivorship bias): SEP has delisted names, TICKERS carries listing
 metadata so a point-in-time universe can be constructed. NOT used by the live
-loop - research only.
+loop — research only.
 """
 from __future__ import annotations
 
@@ -44,5 +44,5 @@ class SharadarProvider:
         return df
 
     def tickers_meta(self) -> pd.DataFrame:
-        """TICKERS table: listing dates, delisting, category - the PIT backbone."""
+        """TICKERS table: listing dates, delisting, category — the PIT backbone."""
         return self._fetch_csv("TICKERS", "table=SEP")

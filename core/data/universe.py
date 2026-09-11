@@ -29,7 +29,7 @@ _EQUITY_SYMBOLS = [
     "XOM", "CVX", "CAT", "BA", "GE", "HON",
     # Communications / Other
     "NFLX", "DIS", "CRM", "ADBE", "AMD", "INTC",
-    # User additions (2026-07-03) - passed the ADV>$50M rule at add time.
+    # User additions (2026-07-03) — passed the ADV>$50M rule at add time.
     # RCKT was requested but REJECTED: 20d ADV ~$10M, 5x below the floor.
     "MU", "MRVL", "TEM", "EOSE",
 ]
@@ -49,7 +49,7 @@ _UNIVERSE_FILE = Path(__file__).resolve().parent.parent.parent / "data" / "unive
 def _load_dynamic(path: Path = _UNIVERSE_FILE):
     """Load the generated top-ADV universe (scripts/build_universe.py output).
 
-    Returns (symbols, sectors, adv_map) or None if no file - in which case the
+    Returns (symbols, sectors, adv_map) or None if no file — in which case the
     hardcoded 45-name seed below is used. The generated universe is FROZEN for
     the duration of an experiment run (clock discipline: regeneration only at
     config windows).
@@ -89,7 +89,7 @@ def rss_subset(top_n: int = 150) -> list[str]:
         return list(dict.fromkeys(ranked + [p for p in USER_PICKS if p in ADV_MAP]))
     return [a.symbol for a in EQUITY_UNIVERSE]
 
-# GICS-style sector map - feeds the governor's 25%-per-sector cap (SPEC §4).
+# GICS-style sector map — feeds the governor's 25%-per-sector cap (SPEC §4).
 # Crypto names all map to "crypto" (itself capped by the 20% allocation).
 SECTORS: dict[str, str] = {
     "AAPL": "tech", "MSFT": "tech", "NVDA": "tech", "AVGO": "tech",

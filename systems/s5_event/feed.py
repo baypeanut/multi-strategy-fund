@@ -1,4 +1,4 @@
-"""S5 live event feed - trailing 8-K filings + their AR(0,1) reaction sign.
+"""S5 live event feed — trailing 8-K filings + their AR(0,1) reaction sign.
 
 Keeps a rolling cache of raw 8-K filings (ticker, filing_date) over the trailing
 holding window and re-derives each event's reaction sign from the SAME price
@@ -6,7 +6,7 @@ panel the runtime already fetches. EDGAR is polled at most once per calendar day
 (500 CIK submission calls are the expensive part); the AR(0,1) recompute off the
 cached filings is cheap.
 
-The reaction sign uses `market_model_car(event_window=(0,1))` - identical to the
+The reaction sign uses `market_model_car(event_window=(0,1))` — identical to the
 research event table that produced the confirmed edge. An event too fresh to
 have its day-after return yet (filing == latest bar) is simply skipped this
 rebalance; entry_lag=2 leaves a buffer, so it is picked up before the position

@@ -110,7 +110,7 @@ def test_stale_mark_alerts_on_non_s4_book(runtime, monkeypatch):
 
 def test_s4_attribution_reflects_real_pnl(runtime, monkeypatch):
     """Dashboard attribution panel must come from the real p0/p1 marking
-    loop, not a fabricated series - regression guard for that contract."""
+    loop, not a fabricated series — regression guard for that contract."""
     monkeypatch.setattr(LiveRuntime, "_fetch_light", _ok_light)
     monkeypatch.setattr(LiveRuntime, "_ingest_news", lambda *a, **k: None)
     monkeypatch.setattr(LiveRuntime, "_should_rebalance",
@@ -147,7 +147,7 @@ def test_s4_attribution_accumulates_within_a_bar_resets_on_new_bar(runtime, monk
     first = {row[0]: row for row in runtime.state["s4_attribution"]}["AAPL"][3]
     assert first > 0
 
-    # tick 2: SAME bar, AAPL unchanged (101->101, as it would be intraday)
+    # tick 2: SAME bar, AAPL unchanged (101->101, as it would be intraday) —
     # accumulated $ must NOT collapse back to ~0
     monkeypatch.setattr(LiveRuntime, "_fetch_light",
         lambda self: LightData(bar_date="2026-07-15", prices={"AAPL": 101.0},
@@ -156,7 +156,7 @@ def test_s4_attribution_accumulates_within_a_bar_resets_on_new_bar(runtime, monk
     second = {row[0]: row for row in runtime.state["s4_attribution"]}["AAPL"][3]
     assert second == pytest.approx(first, abs=0.5)
 
-    # tick 3: NEW bar, AAPL 101->99 - attribution resets, no leftover from
+    # tick 3: NEW bar, AAPL 101->99 — attribution resets, no leftover from
     # the prior day's accumulation
     monkeypatch.setattr(LiveRuntime, "_fetch_light",
         lambda self: LightData(bar_date="2026-07-16", prices={"AAPL": 99.0},

@@ -72,7 +72,7 @@ def garch11_vol(returns: pd.Series, annualize: bool = False) -> float:
 def yang_zhang_vol(
     ohlcv: pd.DataFrame, window: int = 30, annualize: bool = False
 ) -> float:
-    """Yang-Zhang OHLC volatility - low-variance, gap-aware estimator."""
+    """Yang-Zhang OHLC volatility — low-variance, gap-aware estimator."""
     df = ohlcv.tail(window + 1)
     if len(df) < 5:
         return 0.0

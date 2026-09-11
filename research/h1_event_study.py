@@ -1,4 +1,4 @@
-"""H1 - reaction/sentiment-conditioned 8-K event study (research lane).
+"""H1 — reaction/sentiment-conditioned 8-K event study (research lane).
 
 Pre-registered (RESEARCH_LOG E9, written before running):
   H1a: |AR(0,1)| on 8-K days exceeds non-event days.
@@ -39,7 +39,7 @@ def fetch_8k_events(tickers: list[str], start: str | None = None,
                     end: str | None = None) -> pd.DataFrame:
     """All 8-Ks (with item codes) for tickers within [start, end].
 
-    Date bounds are how the harness enforces the exploration/lockbox split
+    Date bounds are how the harness enforces the exploration/lockbox split —
     primitives obey the window they are handed, they never choose it.
     """
     lo = pd.Timestamp(start) if start else pd.Timestamp.now() - pd.DateOffset(years=YEARS_BACK)
@@ -54,19 +54,32 @@ def fetch_8k_events(tickers: list[str], start: str | None = None,
             data = json.loads(_get(f"https://data.sec.gov/submissions/CIK{cik}.json"))
         except Exception:
             continue
-        rec = data.get("filings", {}).get("recent", {})
-        for form, date, items, acc in zip(
-            rec.get("form", []), rec.get("filingDate", []),
-            rec.get("items", []), rec.get("accessionNumber", []),
-        ):
-            if form != "8-K":
+        filings = data.get("filings", {})
+        pages = [filings.get("recent", {})]
+        # SEC's recent block is bounded. Historical windows must follow the
+        # dated extra files, otherwise the older confirmation sample silently
+        # excludes companies whose recent block no longer reaches that period.
+        for meta in filings.get("files", []):
+            if pd.Timestamp(meta["filingTo"]) < lo or pd.Timestamp(meta["filingFrom"]) > hi:
                 continue
-            d = pd.Timestamp(date)
-            if d < lo or d > hi:
-                continue
-            rows.append({"ticker": t, "date": d, "items": items or "", "acc": acc})
+            time.sleep(0.15)
+            # Do not grade a partial historical sample if a required page fails.
+            pages.append(json.loads(_get("https://data.sec.gov/submissions/" + meta["name"])))
+        seen = set()
+        for rec in pages:
+            for form, date, items, acc in zip(
+                rec.get("form", []), rec.get("filingDate", []),
+                rec.get("items", []), rec.get("accessionNumber", []),
+            ):
+                if form != "8-K" or acc in seen:
+                    continue
+                d = pd.Timestamp(date)
+                if d < lo or d > hi:
+                    continue
+                seen.add(acc)
+                rows.append({"ticker": t, "date": d, "items": items or "", "acc": acc})
         time.sleep(0.15)  # SEC politeness
-    return pd.DataFrame(rows)
+    return pd.DataFrame(rows, columns=["ticker", "date", "items", "acc"])
 
 
 def primary_item(items: str) -> str:
@@ -88,11 +101,12 @@ def compute_event_table(events: pd.DataFrame, prices: dict, spy_ret: pd.Series) 
         aret = df["close"].pct_change().dropna()
         try:
             r01 = market_model_car(aret, spy_ret, ev["date"], event_window=(0, 1))
-            if len(r01["ar"]) == 0:
+            if len(r01["ar"]) != 2:
                 continue
-            # NOTE: ev["items"], not ev.items - the latter is Series.items (method)
+            # NOTE: ev["items"], not ev.items — the latter is Series.items (method)
             row = {"ticker": ev["ticker"], "date": ev["date"],
-                   "item": primary_item(ev["items"]), "ar01": r01["car"]}
+                   "item": primary_item(ev["items"]), "ar01": r01["car"],
+                   "signal_date": r01["ar"].index[-1]}
             for (a, b) in DRIFT_WINDOWS:
                 rd = market_model_car(aret, spy_ret, ev["date"], event_window=(a, b))
                 row[f"car{a}_{b}"] = rd["car"] if len(rd["ar"]) > 0 else np.nan
@@ -104,7 +118,7 @@ def compute_event_table(events: pd.DataFrame, prices: dict, spy_ret: pd.Series) 
 
 def month_block_bootstrap_diff(tab: pd.DataFrame, col: str, n_boot: int = N_BOOT) -> dict:
     """Difference in mean drift (pos vs neg AR(0,1) bucket) with month-block
-    bootstrap SE - events cluster in earnings months, iid SEs would lie."""
+    bootstrap SE — events cluster in earnings months, iid SEs would lie."""
     tab = tab.dropna(subset=[col]).copy()
     tab["month"] = tab["date"].dt.to_period("M")
     months = tab["month"].unique()
@@ -155,19 +169,19 @@ def main():
         px.update(got)
         missing = [t for t in missing if t not in px]
         if missing:
-            print(f"  attempt {attempt + 1}: still missing {len(missing)} - backing off 30s (rate limit)")
+            print(f"  attempt {attempt + 1}: still missing {len(missing)} — backing off 30s (rate limit)")
             time.sleep(30)
     pickle.dump(px, open(cache, "wb"))
     print(f"  prices: {len(px)}/{len(tickers) + 1} names")
     if "SPY" not in px:
-        sys.exit("FATAL: SPY missing - cannot run market model")
+        sys.exit("FATAL: SPY missing — cannot run market model")
     spy_ret = px["SPY"]["close"].pct_change().dropna()
 
     print("[3/4] computing AR/CAR per event...")
     tab = compute_event_table(events, px, spy_ret)
     print(f"  usable events: {len(tab)}")
     if len(tab) == 0:
-        sys.exit("FATAL: no usable events - inspect data")
+        sys.exit("FATAL: no usable events — inspect data")
     tab.to_csv("research/h1_events.csv", index=False)
 
     print("[4/4] hypothesis tests\n" + "=" * 64)
@@ -176,14 +190,14 @@ def main():
     all_ar = tab["ar01"].abs()
     # non-event baseline: typical 2-day |abnormal| move ~ sqrt(2)*resid vol;
     # approximate with each name's |2d market-model residual| median via bootstrap
-    # of random dates: cheaper proxy - compare to |ar01| on shuffled dates
+    # of random dates: cheaper proxy — compare to |ar01| on shuffled dates
     print(f"H1a  |AR(0,1)| on events: mean {all_ar.mean():.2%}, median {all_ar.median():.2%} "
           f"(E2 replication on n={len(tab)})")
 
     # --- H1b: reaction-conditioned drift -------------------------------
     n_tests = len(DRIFT_WINDOWS) * (1 + 3)  # all + 3 major item buckets
     bonferroni_p = 0.05 / n_tests
-    print(f"\nH1b  drift by AR(0,1) sign - {n_tests} tests, Bonferroni alpha={bonferroni_p:.4f}")
+    print(f"\nH1b  drift by AR(0,1) sign — {n_tests} tests, Bonferroni alpha={bonferroni_p:.4f}")
     results = {}
     for (a, b) in DRIFT_WINDOWS:
         col = f"car{a}_{b}"
@@ -214,7 +228,7 @@ def main():
               and np.sign(r1["diff"]) == np.sign(r2["diff"]))
     print("\n" + "=" * 64)
     print(f"PRE-REGISTERED VERDICT (ALL car2_10): "
-          f"{'PASS - candidate for next config window' if passed else 'FAIL - no tradable reaction-drift at our thresholds'}")
+          f"{'PASS — candidate for next config window' if passed else 'FAIL — no tradable reaction-drift at our thresholds'}")
     print("Full table saved to research/h1_events.csv")
 
 

@@ -1,4 +1,4 @@
-"""Paper broker - simulates fills with realistic costs against the ledger.
+"""Paper broker — simulates fills with realistic costs against the ledger.
 
 Execution model: an order to trade `qty` (signed) of a symbol at a reference
 mid price fills at a slipped price:
@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import math
 
 from ..ledger.ledger import Fill, Ledger
 from .costs import CostModel
@@ -54,10 +55,17 @@ class PaperBroker:
     ) -> OrderResult:
         ts = ts or datetime.now(timezone.utc)
         cost_model = self.cost_models[asset_class]
+        if not math.isfinite(adv) or adv <= 0:
+            raise ValueError("finite positive ADV required for liquidity cap")
+        if not math.isfinite(mid_price) or mid_price <= 0 or not math.isfinite(qty):
+            raise ValueError("finite quantity and positive price required")
+        if not math.isfinite(daily_vol) or daily_vol < 0:
+            raise ValueError("finite nonnegative daily_vol required")
+        requested_qty = qty
 
         # --- liquidity cap: clip order to a share of ADV ----------------
         clipped = False
-        max_value = self.liquidity_adv_cap * adv if adv > 0 else float("inf")
+        max_value = self.liquidity_adv_cap * adv
         req_value = abs(qty) * mid_price
         if req_value > max_value:
             clipped = True
@@ -78,7 +86,7 @@ class PaperBroker:
 
         return OrderResult(
             symbol=symbol,
-            requested_qty=qty,
+            requested_qty=requested_qty,
             filled_qty=qty,
             mid_price=mid_price,
             fill_price=fill_price,

@@ -58,7 +58,7 @@ def test_discovery_dedupe_prevents_family_trial_inflation(tmp_path, monkeypatch)
     """A spec that already had a discovery run must be recognized as executed
     even after its queue status is reset to 'pending' (director/human rewrite).
     Re-running would re-increment the family trial count used in the Bonferroni
-    correction - the exact snooping the armor prevents."""
+    correction — the exact snooping the armor prevents."""
     monkeypatch.setattr(H, "REGISTRY", tmp_path / "registry.json")
     monkeypatch.setattr(H, "RESULTS", tmp_path / "RESULTS.jsonl")
 

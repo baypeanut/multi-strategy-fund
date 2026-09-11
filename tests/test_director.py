@@ -67,7 +67,12 @@ def test_director_budget_cap(monkeypatch):
                         fake_anthropic({"memo": "m", "new_specs": []}))
     assert D.run_director([]) is not None
     assert D.run_director([]) is not None
-    assert D.run_director([]) is None          # 3rd call: budget (2/night) hit
+    # E57b: the 3rd call is budget-capped. It used to return None, which is
+    # also what a missing key returns, so a capped director printed nothing at
+    # all and the night read as if it had chosen not to design. A limit doing
+    # its job is information, not silence.
+    third = D.run_director([])
+    assert third is not None and "budget" in third["skipped"]
 
 
 def test_director_cannot_reopen_burned_family(monkeypatch):

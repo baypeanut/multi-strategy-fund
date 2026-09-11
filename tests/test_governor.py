@@ -1,5 +1,6 @@
 """Tests for the RiskGovernor circuit breakers."""
 import numpy as np
+import pytest
 import pandas as pd
 
 from core.risk.governor import RiskGovernor, resample_daily
@@ -119,3 +120,115 @@ def test_non_datetime_series_backward_compatible():
     eq = pd.Series([100.0, 100.0, 96.0])
     d = gov.assess(pd.Series({"A": 0.05}), equity_curve=eq)
     assert d.halted
+
+
+# --- the wiring, not the unit ------------------------------------------------
+def test_the_runtime_governor_carries_the_configured_limits(tmp_path):
+    """E63, the other half of the wiring gap.
+
+    Every test above builds its own RiskGovernor from hardcoded literals and
+    never reads CONFIG, so nothing proved the CONFIGURED limits reach the
+    governor the fund actually runs. The value pins in
+    test_preregistered_constants.py prove config says the right thing; this
+    proves the runtime is listening.
+
+    Both halves are needed and they fail for different reasons: change
+    config.yaml and the value pin goes red; break runtime/live.py's wiring so a
+    limit falls back to the dataclass default and only THIS goes red."""
+    from core.config import CONFIG
+    from runtime.live import LiveRuntime
+
+    rt = LiveRuntime(state_path=str(tmp_path / "state.json"))
+    g, r = rt.governor, CONFIG["risk"]
+
+    assert g.max_gross == r["max_gross"]
+    assert g.max_net == r["max_net"]
+    assert g.dd_gate_1 == r["dd_gate_1"]
+    assert g.dd_gate_2 == r["dd_gate_2"]
+    assert g.daily_loss_kill == r["daily_loss_kill"]
+    assert g.var_limit_95 == r["var_limit_95"]
+    assert g.max_sector == r["max_sector"]
+    assert g.sectors, "the sector cap is inert without a symbol -> sector map"
+
+
+def test_the_governor_follows_config_rather_than_a_matching_literal(monkeypatch,
+                                                                   tmp_path):
+    """The equality check above is necessary and not sufficient.
+
+    Measured: replacing `dd_gate_2=CONFIG.risk.dd_gate_2` in runtime/live.py
+    with the literal `-0.15` keeps that test green, because the literal happens
+    to EQUAL the configured value. The link would be severed and the assertion
+    could not tell - it would only surface later, when someone changed
+    config.yaml and the fund quietly ignored them.
+
+    Same lesson as the marginal p-value fixture: a test can only detect a
+    change it is positioned to distinguish. So move config to a value nothing
+    else in the repo uses, rebuild the runtime, and require the governor to
+    follow."""
+    from core.config import CONFIG
+    from runtime.live import LiveRuntime
+
+    sentinel = {"dd_gate_1": -0.111, "dd_gate_2": -0.222,
+                "daily_loss_kill": -0.333, "var_limit_95": 0.444,
+                "max_net": 5.55, "max_sector": 0.666}
+    for k, v in sentinel.items():
+        monkeypatch.setitem(CONFIG["risk"], k, v)
+
+    g = LiveRuntime(state_path=str(tmp_path / "state.json")).governor
+
+    for k, v in sentinel.items():
+        assert getattr(g, k) == v, (
+            f"config set risk.{k}={v} and the runtime's governor carries "
+            f"{getattr(g, k)}. The config-to-governor link is severed, so "
+            f"editing a risk limit changes nothing.")
+
+
+
+def test_the_runtime_actually_applies_the_governors_weights(tmp_path, monkeypatch):
+    """E63. Every test above this line proves the governor DECIDES correctly.
+    None of them proved the runtime USES the decision.
+
+    Measured 2026-08-10 by mutation: replacing `weights["s4"] =
+    decision.weights` in runtime/live.py with `pass` left all 557 tests green.
+    The loud half of the governor survives that edit - `decision.halted` still
+    latches the halt, `decision.actions` still reach Telegram and the dashboard
+    - so the book reports its risk controls as applied while trading
+    ungoverned. Gross clipping, sector clipping, VaR de-risking and the -10%
+    gate's 0.5x sizing all stop silently.
+
+    This is the failure shape the settle loop was built to survive: a diff that
+    reads plausibly, a green suite, an auto-commit. Pinned behaviourally rather
+    than by asserting on source text, because a source-string pin breaks on
+    reformatting and passes on a comment."""
+    import pandas as pd
+    import runtime.live as live_mod
+    from core.risk.governor import GovernorDecision
+    from runtime.live import LightData, LiveRuntime
+
+    rt = LiveRuntime(state_path=str(tmp_path / "state.json"))
+    rt.cache_path = tmp_path / "cache" / "hist.pkl"
+    rt.state["systems"]["s4"]["weights"] = {"AAPL": 0.40}
+    rt.state["prev_prices"] = {"AAPL": 100.0}
+    monkeypatch.setattr(live_mod, "send_telegram", lambda *a, **k: True)
+
+    # degraded fetch -> NO-TRADE tick, no network. The governor still runs:
+    # its gates have to be able to halt a HELD book, not only a trading one.
+    monkeypatch.setattr(
+        LiveRuntime, "_fetch_light",
+        lambda self: LightData(bar_date="2026-08-10", prices={"AAPL": 100.0},
+                               eq_cov=0.01, cx_cov=0.0))
+
+    # a decision nothing else in the tick could have produced
+    sentinel = pd.Series({"AAPL": 0.011})
+    monkeypatch.setattr(
+        rt.governor, "assess",
+        lambda w, **kw: GovernorDecision(weights=sentinel, halted=False,
+                                         risk_scale=1.0, actions=["clipped"]))
+
+    rt.tick()
+
+    got = rt.state["systems"]["s4"]["weights"]
+    assert got.get("AAPL") == pytest.approx(0.011), (
+        f"the governor returned 0.011 for AAPL and the book carries {got}. "
+        f"The runtime is not applying the governor's decision, so every limit "
+        f"in SPEC section 4 is advisory.")

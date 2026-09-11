@@ -1,4 +1,4 @@
-"""W4b tests: live news pipeline - feeds, tiered scorer, cross-tick S2 book."""
+"""W4b tests: live news pipeline — feeds, tiered scorer, cross-tick S2 book."""
 from datetime import datetime, timedelta
 
 import numpy as np

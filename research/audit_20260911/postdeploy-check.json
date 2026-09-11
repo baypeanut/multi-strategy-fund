@@ -1,0 +1,17 @@
+{
+  "checked_at": 1789093707.6450703,
+  "tick_before": 2022,
+  "tick_after": 2023,
+  "last_tick": "2026-09-11T02:26:12.956826+00:00",
+  "provider": "polygon",
+  "provider_basis": "polygon",
+  "halt": null,
+  "clock_unchanged": true,
+  "tick_stats": {
+    "secs": 133.6,
+    "rss_mb": 264.0,
+    "rebalanced": false
+  },
+  "broker_last_refresh": "2026-09-11T02:28:26.535082+00:00",
+  "broker_refresh_error": null
+}

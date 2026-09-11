@@ -1,10 +1,10 @@
-"""Attribution dashboard v3 - "Fund Terminal" (Bloomberg-density, light).
+"""Attribution dashboard v3 — "Fund Terminal" (Bloomberg-density, light).
 
 Design contract (persona: rigorous quant):
 - statistics forward: every figure carries n / p / CI; uncertainty is displayed
 - the pre-registered experiment (H-A/H-B/H-C) is the centerpiece; H-A's
   effect/CI/p-value are read verbatim from state.s3_vs_s1 (server-computed,
-  Newey-West) - the client NEVER re-derives a significance test locally
+  Newey-West) — the client NEVER re-derives a significance test locally
 - every number on screen is derivable from state.json (no fabrication); a
   panel with insufficient data says so instead of inventing history
 - tabular/monospace numerals, flat light theme, book-drill-down sheet
@@ -20,7 +20,7 @@ from pathlib import Path
 _HTML = r"""<!doctype html><html lang=en><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
 <!-- QT-V3-IBKR -->
-<title>Systematic Fund - Fund Terminal</title><link rel="preconnect" href="https://fonts.googleapis.com">
+<title>Systematic Fund — Fund Terminal</title><link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -123,7 +123,7 @@ button.tg.on{background:#4f5fe0;color:#fff;border-color:#4f5fe0}
 <div class=row2>
   <div class=card style="padding:14px 16px;min-width:0">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">
-      <div class=h>Four-book horse race <span class=muted style="font-weight:400;font-size:11px">· daily closes</span></div>
+      <div class=h>Five-book horse race <span class=muted style="font-weight:400;font-size:11px">· daily closes</span></div>
       <div style="display:flex;gap:5px;align-items:center">
         <button class="tg on" id=mUsd>$</button><button class=tg id=mPct>%</button>
         <span style="width:8px"></span>
@@ -132,7 +132,7 @@ button.tg.on{background:#4f5fe0;color:#fff;border-color:#4f5fe0}
     </div>
     <div id=legend style="display:flex;flex-wrap:wrap;gap:14px;font-size:11px;color:#64748b;margin-bottom:8px"></div>
     <div style="position:relative;width:100%;height:270px"><canvas id=eq></canvas></div>
-    <div class=lbl style="margin:14px 0 5px">Drawdown · S4 combined - governor gates at −10% / −15%</div>
+    <div class=lbl style="margin:14px 0 5px">Drawdown · S4 combined — governor gates at −10% / −15%</div>
     <div style="position:relative;width:100%;height:96px"><canvas id=dd></canvas></div>
   </div>
 
@@ -171,7 +171,7 @@ button.tg.on{background:#4f5fe0;color:#fff;border-color:#4f5fe0}
     </div>
 
     <div style="margin-top:12px">
-      <div class=lbl style="margin-bottom:6px">S3 decision audit - who is deciding? <span style="text-transform:none">(all-time)</span></div>
+      <div class=lbl style="margin-bottom:6px">S3 decision audit — who is deciding? <span style="text-transform:none">(all-time)</span></div>
       <div style="display:flex;height:9px;border-radius:5px;overflow:hidden;background:#eef1f5">
         <div id=pmLlm style="background:#7c3aed;width:0%"></div><div id=pmHeld style="background:#94a3b8;width:0%"></div><div id=pmHeur style="background:#cbd5e1;width:0%"></div>
       </div>
@@ -220,7 +220,7 @@ button.tg.on{background:#4f5fe0;color:#fff;border-color:#4f5fe0}
   </div>
 </div>
 
-<!-- IBKR paper mirror - live account vs S4 slice targets -->
+<!-- IBKR paper mirror — live account vs S4 slice targets -->
 <div class=card style="padding:14px 16px;margin-bottom:12px;min-width:0">
   <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:10px">
     <div>
@@ -289,11 +289,11 @@ const COL={s1:'#94a3b8',s2:'#0891b2',s3:'#7c3aed',s4:'#0b2545',s5:'#ca8a04'};
 const NM={s1:'S1 Quant',s2:'S2 News',s3:'S3 LLM',s4:'S4 Combined',s5:'S5 Event'};
 const SHORT={s1:'S1',s2:'S2',s3:'S3',s4:'S4',s5:'S5'};
 const DESC={
- s1:'Deterministic quant book - the control group. Price/volume/factor signals, no LLM. If the LLM books cannot beat this, the LLM only adds cost.',
+ s1:'Deterministic quant book — the control group. Price/volume/factor signals, no LLM. If the LLM books cannot beat this, the LLM only adds cost.',
  s2:'News/event book. Tiered lexicon / LLM scoring over RSS + SEC EDGAR 8-Ks, vol-normalized like every other book.',
  s3:'LLM discretionary book. Frontier PM inside a hard risk wrapper (pm_source audited). Falls back to Ollama/heuristic when budget-capped or unavailable.',
  s4:'Risk-parity ensemble of S1+S2+S3, vol-normalized to a shared 10% ex-ante target. The book the fund actually reports as its combined result.',
- s5:'Event-driven sleeve - forward shadow of the CONFIRMED 8k-drift edge (E18). Long positive-reaction / short negative-reaction 8-Ks, standalone (not in the S4 ensemble). Zero further optimization.'
+ s5:'Event-driven sleeve — forward shadow of the CONFIRMED 8k-drift edge (E18). Long positive-reaction / short negative-reaction 8-Ks, standalone (not in the S4 ensemble). Zero further optimization.'
 };
 // the four core race books, plus S5 only once it exists in state (enabled)
 function BOOKS(s){return ['s1','s2','s3','s4'].concat((s&&s.systems&&s.systems.s5)?['s5']:[]);}
@@ -303,7 +303,17 @@ const MAX_POS_ROWS=60;
 const fmt$=n=>(n<0?'−$':'$')+Math.abs(Math.round(n)).toLocaleString();
 const pct=(n,d=2)=>(n>=0?'+':'')+(n*100).toFixed(d)+'%';
 const gpos='#15803d', gneg='#b91c1c', navy='#0b2545';
-function daily(hist){const m=new Map();for(const p of hist||[])m.set(p[0].slice(0,10),p[1]);const d=[...m.keys()].sort();return {d,v:d.map(k=>m.get(k))};}
+// Trading days only, same basis the server uses for state.realized_vol and for
+// the pre-registered paired test (E48e). Weekend rows exist because crypto
+// reprices while the 80% equity sleeve cannot, and they do two kinds of damage
+// to a risk number: they distort the standard deviation, and they break the
+// sqrt(252) annualisation, which assumes five observations a week and was
+// being handed seven. Measured on the live book before this was fixed, the
+// dashboard and the server disagreed on S4's realised vol by 3.8 points on a
+// 10% target - 12.62% against 8.84%. Two surfaces, one concept, two answers,
+// which is the fastest way to make every number here untrustworthy.
+function isTradingDay(k){const d=new Date(k+'T00:00:00Z').getUTCDay();return d>=1&&d<=5;}
+function daily(hist){const m=new Map();for(const p of hist||[]){const k=p[0].slice(0,10);if(isTradingDay(k))m.set(k,p[1]);}const d=[...m.keys()].sort();return {d,v:d.map(k=>m.get(k))};}
 function rets(v){const r=[];for(let i=1;i<v.length;i++)r.push(v[i]/v[i-1]-1);return r;}
 function mean(a){return a.length?a.reduce((x,y)=>x+y,0)/a.length:0;}
 function std(a){if(a.length<2)return 0;const m=mean(a);return Math.sqrt(a.reduce((x,y)=>x+(y-m)**2,0)/(a.length-1));}
@@ -356,7 +366,7 @@ function render(s){
  const halt=s.halt_latched;
  const hb=document.getElementById('haltBanner');
  if(halt){hb.style.display='flex';document.getElementById('haltText').textContent=
-   '🛑 HALT LATCHED since '+(halt.ts||'').slice(0,16).replace('T',' ')+' UTC - all books flat. Reason: '+(halt.reason||'—');}
+   '🛑 HALT LATCHED since '+(halt.ts||'').slice(0,16).replace('T',' ')+' UTC — all books flat. Reason: '+(halt.reason||'—');}
  else hb.style.display='none';
 
  // chips
@@ -386,7 +396,11 @@ function render(s){
   {lbl:'Inception',val:pct(inc),color:inc>=0?gpos:gneg,sub:'since '+(B.s4.dates[0]||'—')},
   {lbl:'vs SPY',val:vsS==null?'n/a':pct(vsS),color:vsS==null?navy:(vsS>=0?gpos:gneg),sub:'same $ base'},
   {lbl:'Sharpe (daily)',val:B.s4.sharpe==null?'n/a':B.s4.sharpe.toFixed(2),color:navy,sub:'n='+n+'d'+(n<60?' · still short':'')},
-  {lbl:'Ann. vol',val:B.s4.vol==null?'n/a':(B.s4.vol*100).toFixed(1)+'%',color:navy,sub:'target 10%'},
+  {lbl:'Ann. vol',val:B.s4.vol==null?'n/a':(B.s4.vol*100).toFixed(1)+'%',color:navy,
+   // window is whatever RANGE is set to, and it is NOT the same window as
+   // state.realized_vol, which measures from clock_start. Same basis now
+   // (trading days), different span - so the label has to say which.
+   sub:'target 10% · '+(RANGE==='all'?'full history':'last '+RANGE+'d')},
   {lbl:'Max DD',val:(B.s4.dd*100).toFixed(2)+'%',color:gneg,sub:'gate −10 / −15%'},
   {lbl:'Gross',val:Math.round(gross(B.s4.weights)*100)+'%',color:navy,sub:'limit 100%'},
   {lbl:'Days live',val:String(n),color:navy,sub:'last tick '+timeAgo(s.last_tick)}
@@ -399,13 +413,14 @@ function render(s){
   '<span style="display:inline-flex;align-items:center;gap:6px"><b style="display:inline-block;width:15px;height:3px;background:'+COL[k]+'"></b>'+NM[k]+'</span>').join('')
   +'<span style="display:inline-flex;align-items:center;gap:6px"><b style="display:inline-block;width:15px;height:1px;border-top:2px dashed #9aa5b1"></b>SPY</span>';
 
- // experiment panel - H-A verbatim from server-computed state.s3_vs_s1
+ // experiment panel — H-A verbatim from server-computed state.s3_vs_s1
  const pv=s.s3_vs_s1||{};
  const haEst=document.getElementById('haEst'), haStat=document.getElementById('haStat');
  if(pv.mean_daily_bps==null){haEst.textContent='collecting';haEst.style.color=navy;haStat.textContent='n='+(pv.n||0)+'d (need ≥10 to compute)';}
  else{haEst.textContent=(pv.mean_daily_bps>=0?'+':'')+pv.mean_daily_bps.toFixed(1)+' bps/d';
   haEst.style.color=pv.mean_daily_bps>=0?gpos:gneg;
   haStat.textContent='p='+(pv.p_value==null?'—':pv.p_value.toFixed(3))+' · n='+pv.n+'d';}
+ if(pv.vol_ratio_s3_s1!=null)haStat.textContent+=' · S3/S1 vol '+pv.vol_ratio_s3_s1.toFixed(2)+'×';
  const ci=document.getElementById('haCi');
  ci.querySelectorAll('.ci-int,.ci-dot').forEach(e=>e.remove());
  if(pv.mean_daily_bps!=null&&pv.ci95_bps!=null){
@@ -420,7 +435,9 @@ function render(s){
  document.getElementById('haProg').style.width=prog+'%';
  document.getElementById('haProgTxt').textContent=(pv.n||0)+' / 60 trading days to readout';
  const ev=document.getElementById('expVerdict');
- if(pv.verdict_allowed){ev.textContent='READOUT ALLOWED';ev.className='chip '+(pv.mean_daily_bps>=0?'g':'r');}
+ if(pv.risk_comparable===false){ev.textContent='RISK MISMATCH · NO SUPERIORITY CLAIM';ev.className='chip a';}
+ else if(pv.verdict_allowed&&pv.risk_comparable===true){ev.textContent='READOUT ALLOWED';ev.className='chip '+(pv.mean_daily_bps>=0?'g':'r');}
+ else if(pv.verdict_allowed){ev.textContent='RISK COMPARABILITY UNKNOWN';ev.className='chip a';}
  else{ev.textContent='VERDICT LOCKED · needs ≥60d & p<0.05';ev.className='chip gray';}
 
  document.getElementById('hbEst').textContent=B.s2.sharpe==null?'collecting':('Sharpe '+B.s2.sharpe.toFixed(2));
@@ -433,7 +450,7 @@ function render(s){
  else{const d=B.s4.sharpe-best;hcEst.textContent='Δ '+(d>=0?'+':'')+d.toFixed(2);hcEst.style.color=d>=0?gpos:gneg;
   document.getElementById('hcStat').textContent='S4 '+B.s4.sharpe.toFixed(2)+' vs best '+best.toFixed(2);}
 
- // S3 decision audit - three real buckets (anthropic+ollama / held / heuristic)
+ // S3 decision audit — three real buckets (anthropic+ollama / held / heuristic)
  const pmc=s.s3_pm_counts||{};
  const llmN=(pmc.anthropic||0)+(pmc.ollama||0), heldN=pmc.held||0, heurN=pmc.heuristic||0;
  const totPm=llmN+heldN+heurN;
@@ -460,7 +477,7 @@ function render(s){
  document.getElementById('bookTbl').innerHTML=rows;
  document.querySelectorAll('#bookTbl tr.bookrow').forEach(tr=>tr.onclick=()=>openBook(tr.dataset.book));
 
- // correlation matrix (descriptive Pearson corr - NOT a hypothesis test)
+ // correlation matrix (descriptive Pearson corr — NOT a hypothesis test)
  const bk=BOOKS(s);
  const retSeries={};for(const k of bk)retSeries[k]=rets(B[k].eq);
  const cg=document.getElementById('corrGrid');
@@ -513,13 +530,13 @@ function render(s){
  document.getElementById('longs').innerHTML=posRows(ents.filter(e=>e[1]>1e-4).slice(0,7),gpos);
  document.getElementById('shorts').innerHTML=posRows(ents.filter(e=>e[1]<-1e-4).slice(-7).reverse(),gneg);
 
- // P&L attribution (real, from state.s4_attribution - see runtime/live.py)
+ // P&L attribution (real, from state.s4_attribution — see runtime/live.py)
  document.getElementById('attrDay').textContent=dayTxt;
  document.getElementById('attrDay').style.color=dayColor;
  const attr=(s.s4_attribution||[]).slice(0,9);
  const attrEl=document.getElementById('attrib');
  if(!attr.length){
-  attrEl.innerHTML='<div class=sec style="font-size:12px">No mark-to-market move recorded yet at the current price snapshot - attribution populates on the next daily bar.</div>';
+  attrEl.innerHTML='<div class=sec style="font-size:12px">No mark-to-market move recorded yet at the current price snapshot — attribution populates on the next daily bar.</div>';
  } else {
   const maxAbs=Math.max(...attr.map(r=>Math.abs(r[3])))||1;
   attrEl.innerHTML=attr.map(([sym,w,r,usd])=>{
@@ -533,10 +550,10 @@ function render(s){
   }).join('');
  }
 
- // activity log - built only from real signals (no invented entries)
+ // activity log — built only from real signals (no invented entries)
  const events=[];
  if(halt) events.push({ts:halt.ts,text:'🛑 Halt latched',tag:halt.reason||'',dot:gneg});
- if(s.last_rebalance) events.push({ts:s.last_rebalance,text:'Rebalance - '+(s.last_rebalance_reason||'scheduled'),
+ if(s.last_rebalance) events.push({ts:s.last_rebalance,text:'Rebalance — '+(s.last_rebalance_reason||'scheduled'),
    tag:'S3 source: '+(s.s3_pm_source||'—')+' · '+Object.keys(w4).length+' S4 names',dot:navy});
  (s.last_actions||[]).forEach(a=>events.push({ts:s.last_tick,text:'Governor: '+a,tag:'this tick',dot:'#d97706'}));
  (s.data_incidents||[]).slice(-6).reverse().forEach(i=>events.push({ts:i.ts,text:i.kind,tag:i.detail,dot:'#b45309'}));
@@ -549,7 +566,7 @@ function render(s){
    +'<span class=num style="font-size:10px;color:#94a3b8;white-space:nowrap">'+timeAgo(e.ts)+'</span></div>'
    +'<div class=muted style="font-size:10.5px;margin-top:1px">'+e.tag+'</div></div>').join('');
 
- // IBKR paper mirror - live broker positions vs S4 slice targets
+ // IBKR paper mirror — live broker positions vs S4 slice targets
  const ibk=s.ibkr;
  const ibkHead=document.getElementById('ibkHead');
  const ibkKpis=document.getElementById('ibkKpis');
@@ -755,7 +772,7 @@ def make_handler(state_path: Path):
 
 def start_dashboard(state_path: str = "data/state.json", port: int = 8080,
                     host: str = "0.0.0.0") -> ThreadingHTTPServer:
-    # Bound publicly on :8080 (user request). No auth - treat as paper-only.
+    # Bound publicly on :8080 (user request). No auth — treat as paper-only.
     server = ThreadingHTTPServer((host, port), make_handler(Path(state_path)))
     threading.Thread(target=server.serve_forever, daemon=True).start()
     print(f"dashboard on http://{host}:{port}")

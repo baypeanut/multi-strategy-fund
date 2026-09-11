@@ -1,4 +1,4 @@
-"""S5EventEngine - forward replica of the confirmed 8k-drift calendar-time book.
+"""S5EventEngine — forward replica of the confirmed 8k-drift calendar-time book.
 
 Position logic is a byte-for-byte forward version of research primitive
 `calendar_time_daily` (the confirmation instrument): each 8-K event contributes

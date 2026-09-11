@@ -83,7 +83,7 @@ def test_gate_holds_weights_without_engines(rt, monkeypatch):
 # --- materiality gate (E15 fix: reference-vector, not quantum-crossing) --------
 def test_gate_ignores_pure_decay_drift(rt):
     rt._stamp_rebalance_ref("2026-07-09", pd.Series({"AAA": 0.60, "BBB": -0.40}))
-    # an hour of decay moves scores by ~2% - far under the 0.5 shock threshold
+    # an hour of decay moves scores by ~2% — far under the 0.5 shock threshold
     should, _ = rt._should_rebalance("2026-07-09",
                                      pd.Series({"AAA": 0.585, "BBB": -0.39}))
     assert should is False

@@ -1,4 +1,4 @@
-"""S4Engine - the combined book.
+"""S4Engine — the combined book.
 
 Takes each sub-system's target weights and recent return history, computes
 risk-parity (or min-variance) system allocations, and produces the netted

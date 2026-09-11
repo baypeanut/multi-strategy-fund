@@ -26,8 +26,9 @@ import yaml
 
 from research.director import run_director, run_referee
 from research.harness import (HYPOTHESES, already_run_discovery, execute_spec,
-                              load_registry, pending_confirmation, record,
-                              register_spec, run_confirmation, validate_spec)
+                              format_error, load_registry, pending_confirmation,
+                              record, register_spec, run_confirmation,
+                              validate_spec)
 
 
 def load_queue() -> list[dict]:
@@ -44,8 +45,19 @@ def run_one_from_queue(queue: list[dict]) -> dict | None:
     for hypo in queue:
         if hypo.get("status", "pending") != "pending":
             continue
+        # validate BEFORE the dedupe consult: a spec whose params were stripped
+        # after registration hashes like a DIFFERENT experiment, and consulting
+        # the dedupe first let exactly such a spec (old spec B, N0025) be
+        # marked done against another run's result id. Validation must
+        # establish the spec IS what it claims before any bookkeeping happens.
+        err = validate_spec(hypo)
+        if err:
+            hypo["status"] = "rejected"
+            hypo["reject_reason"] = err
+            save_queue(queue)
+            continue
         # already executed under a prior (possibly reset) queue state? skip it
-        # without re-running - re-running would re-inflate the family's trial
+        # without re-running — re-running would re-inflate the family's trial
         # count and corrupt the multiple-testing correction. This is the
         # immutable guard; the mutable yaml status is only a convenience.
         prior = already_run_discovery(hypo)
@@ -55,18 +67,12 @@ def run_one_from_queue(queue: list[dict]) -> dict | None:
             hypo["skipped_duplicate"] = True
             save_queue(queue)
             continue
-        err = validate_spec(hypo)
-        if err:
-            hypo["status"] = "rejected"
-            hypo["reject_reason"] = err
-            save_queue(queue)
-            continue
         register_spec(hypo)
         metrics, error = None, None
         try:
             metrics = execute_spec(hypo, window="explore")
         except Exception as exc:
-            error = f"{type(exc).__name__}: {exc}"
+            error = format_error(exc)
         entry = record(hypo, metrics, error, phase="discovery")
         hypo["status"] = "done"
         hypo["result_id"] = entry["id"]
@@ -91,7 +97,7 @@ def main() -> None:
             + (f" | {json.dumps(entry['metrics'])}" if entry["metrics"]
                else f" | error: {entry['error']}"))
         if entry["verdict"] == "CONFIRMED":
-            digest.append("⚠️ CONFIRMED - human review required before anything "
+            digest.append("⚠️ CONFIRMED — human review required before anything "
                           "goes near live capital")
     else:
         # 2) queue head
@@ -104,7 +110,7 @@ def main() -> None:
                 + (f" | {json.dumps(entry['metrics'])}" if entry["metrics"]
                    else f" | error: {entry['error']}"))
         else:
-            digest.append("🔬 queue empty - director will design")
+            digest.append("🔬 queue empty — director will design")
 
     # 3) adversarial referee on notable results
     for entry in entries:
@@ -115,7 +121,9 @@ def main() -> None:
 
     # 4) director designs tomorrow
     out = run_director(load_queue())
-    if out and out.get("error"):
+    if out and out.get("skipped"):
+        digest.append(f"🧠 director skipped: {out['skipped']}")
+    elif out and out.get("error"):
         # E45: surface it. A silent director is indistinguishable from a
         # deliberate empty night, and that cost three days of dead research.
         digest.append(f"🧠 DIRECTOR FAILED: {out['error']}")
@@ -129,6 +137,59 @@ def main() -> None:
             digest.append("🧠 director specs rejected: " + "; ".join(
                 f"{r['name']}: {r['error']}" for r in out["rejected"][:3]))
 
+    # 5) staff engineer / quant lane (E22; full authority since E30) — it
+    # applies and commits its own passing work. Zero proposals is a valid night.
+    try:
+        from research.engineer import run_engineer_until_settled
+        loop = run_engineer_until_settled()
+    except Exception as exc:
+        loop = {"error": f"{type(exc).__name__}: {exc}"}
+
+    # E48: the lane works rounds until it settles. Report every round, plus why
+    # it stopped — "chose not to act" and "never ran" must not look alike.
+    for eng in ((loop or {}).get("rounds") or [loop] if loop else []):
+        if not eng:
+            continue
+        if eng.get("accepted") is not None:
+            for r in eng["accepted"]:
+                sbx = "✅" if r["sandbox"]["passed"] else "❌"
+                aa = r.get("auto_apply") or {}
+                if aa.get("ok"):
+                    sha = (aa.get("git") or {}).get("sha") or "?"
+                    outcome = f"APPLIED @{sha}" + (
+                        " — RESTART NEEDED" if aa.get("needs_restart") else "")
+                elif aa:
+                    outcome = f"apply failed, rolled back ({aa.get('error', '?')})"
+                else:
+                    outcome = (f"left pending — review: python scripts/"
+                               f"review_proposals.py --show {r['id']}")
+                digest.append(
+                    f"🔧 {r['id']} [{r['kind']}/{r['risk_class']}] {r['title']} "
+                    f"| sandbox {sbx} | {outcome}")
+            if not eng["accepted"]:
+                digest.append("🔧 engineer: no code tonight (see memo)")
+        elif eng.get("skipped"):
+            digest.append(f"🔧 engineer skipped: {eng['skipped']}")
+        elif eng.get("error"):
+            digest.append(f"🔧 engineer error: {eng['error'][:200]}")
+
+    if loop and loop.get("detail"):
+        digest.append(f"🛑 {loop['detail']}")
+    if loop and loop.get("stop_reason"):
+        why = {
+            "stood_down": "nothing left worth doing, waiting to see",
+            "no_progress": "stopped: rounds producing nothing that survived review",
+            "round_cap": "stopped: hit the round ceiling with work still queued",
+            "budget": "stopped: daily session budget spent",
+            "blocked": "stopped: blocked, see the line above",
+            "baseline_red": "REFUSED TO SPEND: the suite is red under gate "
+                            "conditions, so every proposal would have been "
+                            "rolled back",
+            "dry_run": "dry run",
+        }.get(loop["stop_reason"], loop["stop_reason"])
+        digest.append(f"🔧 lane: {loop['n_rounds']} round(s), "
+                      f"{loop['applied_total']} applied — {why}")
+
     reg = load_registry()
     n_pending = len([h for h in load_queue()
                      if h.get("status", "pending") == "pending"])
@@ -138,7 +199,7 @@ def main() -> None:
     # Telegram: fund sends one daily digest from live.py; research stays in
     # logs + RESEARCH_LOG so the chat is not a second daily channel.
     if dry:
-        print("(dry-run - no side effects beyond the printed digest)")
+        print("(dry-run — no side effects beyond the printed digest)")
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-"""QuantEngine - System 1 (deterministic, no LLM).
+"""QuantEngine — System 1 (deterministic, no LLM).
 
 Ties data -> volatility -> signals -> combination -> covariance -> target
 weights. This is the control-group book: fully reproducible, backtestable, $0

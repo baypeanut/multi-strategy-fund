@@ -1,0 +1,12 @@
+{
+  "purpose": "audit of timing on existing cached research data; not a new strategy trial or rerun of lockbox",
+  "n_events": 1529,
+  "start": "2023-07-05 00:00:00",
+  "end": "2026-07-02 00:00:00",
+  "n_days": 752,
+  "legacy_sharpe": 1.5205443148538649,
+  "causal_sharpe": 0.6497353536600834,
+  "legacy_total_return": 0.7891325062333714,
+  "causal_total_return": 0.26042014016999193,
+  "changed_days": 618
+}

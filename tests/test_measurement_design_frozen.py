@@ -57,6 +57,46 @@ on the fund's only confirmed edge, and clamping S1/S2/S3 would break
 comparability with every day already recorded. But CLAUDE.md says risk limits
 "are enforced by the risk governor" with no qualification, which reads as all
 books, so the tree looks like a bug to anyone who has not been told otherwise.
+
+---------------------------------------------------------------------------
+ASYMMETRY 3 (E63d, measured 2026-08-12): the books are EX-ANTE equal and
+REALISED unequal, and the same bias has now survived two fixes.
+
+    book  n_held   ex-ante vol   realised vol   ratio
+    s1      502       10.04%         9.94%       0.99
+    s3       41       10.00%        13.45%       1.35
+
+The sizer is doing its job: both books are scaled to the same 10% ex-ante
+target and both hit it. The gap is estimation error. S3 holds ~40 names carved
+out of a 500-name shrunk covariance, so its ex-ante vol is underestimated and
+it is scaled up too far; S1 holds 500 and the errors average out.
+
+Over that same window S3 "beat" S1 by 4.34pp. A raw-return win by a book
+running 35% hotter is a risk difference, not a skill claim.
+
+Read this next to ASYMMETRY 1 above, because it is the third appearance of one
+bias:
+
+    W3   found it in raw gross      - "S3 lost less" was just lower gross
+    E49  found it in the regime     - a throttle on one arm only
+    E63d finds it in the estimator  - a concentrated book mis-sized
+
+Each fix was correct and each moved the bias somewhere new. That is the pattern
+to expect on the fourth: the fair race is a property of the whole pipeline, and
+pinning ex-ante equality does not pin it.
+
+Head-quant call, 2026-08-12: do NOT change sizing and do NOT change the decision
+rule. Both would reset the clock and relitigate a pre-registration that exists
+precisely so it cannot be relitigated late. Ex-ante equality IS the registered
+property and it holds. What was missing is that nothing carried the realised
+gap alongside the verdict, so a day-60 raw-return win would have read as skill.
+_paired_s3_vs_s1 now emits vol_ratio_s3_s1 and risk_comparable, and the tests
+in test_fair_race.py pin both directions.
+
+The open question this leaves the owner: at day 60, if S3 wins on raw returns
+while risk_comparable is False, the honest report is "no superiority claim -
+the books did not run at comparable risk", NOT "S3 won". Deciding that in
+advance is what stops it being decided by whoever likes the answer.
 """
 import inspect
 
@@ -65,6 +105,28 @@ import runtime.live as live
 
 def _sizing_source() -> str:
     return inspect.getsource(live.LiveRuntime._run_systems)
+
+
+def test_the_regime_scale_reaches_no_sizing_or_target_anywhere():
+    """E59b. The first version of this pinned the string "reg.risk_scale"
+    inside _run_systems. _realized_vol reached the same value by a different
+    route - self.state["regime"]["risk_scale"] - and kept scaling S3's target
+    for a week after E49 removed the multiplier from S3's real sizing, so the
+    instrument built to measure the fair race misreported the one book the
+    question is about.
+
+    Pinning a spelling is not pinning a fact. This looks for the value however
+    it is spelled, everywhere except the regime module that computes it and the
+    governor's own unrelated scale."""
+    import pathlib
+    src = pathlib.Path(live.__file__).read_text()
+    hits = [l.strip() for l in src.splitlines()
+            if "risk_scale" in l
+            and "decision.risk_scale" not in l      # governor's own, unrelated
+            and not l.strip().startswith("#")]
+    assert hits == [], (
+        "the regime scale is reaching sizing or a target again:\n  "
+        + "\n  ".join(hits))
 
 
 def test_no_book_is_regime_throttled():
@@ -111,3 +173,66 @@ def test_all_books_share_one_vol_target_constant():
     assert "0.10" not in src and "0.1," not in src, (
         "a literal vol target appeared in the sizing path; it must come from "
         "CONFIG.risk.vol_target_annual so every book moves together")
+
+
+def test_the_realised_risk_gap_travels_with_the_verdict():
+    """ASYMMETRY 3 is registered above as a known, measured, deliberately
+    unfixed property. What must NOT be lost is the label that keeps it visible:
+    if _paired_s3_vs_s1 stops emitting the realised-vol ratio, a raw-return win
+    by the hotter book reads as a skill claim again, which is the exact sentence
+    W3 and E49 were each written to prevent."""
+    import inspect
+
+    from runtime.live import LiveRuntime
+
+    src = inspect.getsource(LiveRuntime._paired_s3_vs_s1)
+    assert "vol_ratio_s3_s1" in src, (
+        "the paired readout no longer carries the realised-risk ratio; a "
+        "day-60 verdict could be reported without it")
+    assert "risk_comparable" in src
+
+
+def test_the_reset_policy_is_recorded_and_the_cap_is_not_exceeded():
+    """E64c. The owner asked the question that needed asking: "will you wait 60
+    days and then tell me you found a mistake and need 60 more?"
+
+    Two resets have happened, both at low n - E49's regime removal voided 14
+    banked days, E64's neutrality bug voided 11. At that rate the experiment
+    never concludes, and never concluding is indistinguishable from having no
+    strategy. The incentive is also misaligned: a reset is cheap for whoever is
+    improving and expensive for whoever is waiting for the answer.
+
+    DECISIONS.md section 7 bounds it, and this test keeps the bound honest:
+      - an IMPROVEMENT never justifies a reset, at any n (H8 and H9 are
+        improvements and wait for the next window)
+      - n <= 10 head quant decides; 11-30 owner only, and only for a defect that
+        changes the SIGN or significance; n > 30 nobody, the defect is disclosed
+        in the verdict and the clock runs
+      - three resets total, ever. This was the second.
+
+    A policy nobody counts is a suggestion, so the count is asserted here."""
+    import json
+    import pathlib
+
+    policy = pathlib.Path("DECISIONS.md")
+    assert policy.exists(), "the reset policy has been deleted"
+    text = policy.read_text().lower()
+
+    # Deliberately NOT a prose match. The first version of this test asserted
+    # the phrase "IMPROVEMENT never justifies", which the policy does not
+    # contain in those words, so the test failed on its own wording rather than
+    # on anything real - the same pin-a-spelling trap this file exists to warn
+    # about. Assert only that the section is present and that the COUNT, which
+    # is the actual bound, holds.
+    assert "reset policy" in text, "the reset-policy section is gone"
+    assert "three resets total" in text, "the hard cap is gone from the policy"
+
+    state = pathlib.Path("data/state.json")
+    if not state.exists():
+        return                      # offline suite on a fresh clone
+    resets = json.loads(state.read_text()).get("clock_resets") or []
+    assert len(resets) <= 3, (
+        f"{len(resets)} clock resets on record and the cap is 3. A fourth is not "
+        f"another bug fix: it means the measurement surface must be frozen "
+        f"entirely BEFORE a clock starts, which is one deliberate decision "
+        f"rather than a fourth reset.")

@@ -1,4 +1,4 @@
-"""RiskGovernor - the firm-wide circuit breaker.
+"""RiskGovernor — the firm-wide circuit breaker.
 
 Sits above every book. Given a proposed combined target and the equity history,
 it enforces (in order): drawdown gate 2 (halt), daily-loss kill, drawdown gate 1
@@ -7,7 +7,7 @@ trades without its sign-off.
 
 Timescale correctness: live equity marks arrive hourly, but the loss-kill rule
 is a DAILY rule. If the curve has a DatetimeIndex we resample to calendar-day
-closes and measure the current mark against *yesterday's close* - so a loss
+closes and measure the current mark against *yesterday's close* — so a loss
 spread across 24 hourly ticks triggers exactly like a single-hour crash.
 Series without a DatetimeIndex (tests, backtests on daily bars) are treated as
 already-daily.

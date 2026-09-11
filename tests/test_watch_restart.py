@@ -1,11 +1,11 @@
 """Applied-but-not-running pager (2026-07-26).
 
 The lane ships code unattended but cannot restart a service. P0011 landed at
-04:43 and was still not running at 12:37 - 8h during which the data-loss it
+04:43 and was still not running at 12:37 — 8h during which the data-loss it
 fixes carried on, while systemd said active, the tick was fresh and git was
 clean. Nothing could see it. These tests pin the detector and, most of all,
 its silence when it cannot know (an unavailable service start time must never
-produce a page - a pager that cries wolf is worse than none).
+produce a page — a pager that cries wolf is worse than none).
 """
 from datetime import datetime, timedelta, timezone
 

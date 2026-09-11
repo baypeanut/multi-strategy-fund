@@ -1,4 +1,4 @@
-"""Armored research harness v2 - the deterministic judge (E17).
+"""Armored research harness v2 — the deterministic judge (E17).
 
 Anti-snooping architecture (all mechanical, none rely on trusting the agent):
   REGISTRATION  every spec is hash+timestamp registered BEFORE it can run;
@@ -13,17 +13,18 @@ Anti-snooping architecture (all mechanical, none rely on trusting the agent):
   STAMPING      every result carries spec/harness/universe hashes and windows.
   Agent NEVER writes this ledger, NEVER computes metrics, NEVER touches live.
 
-Windows (fixed by design - the agent cannot choose dates):
+Windows (fixed by design — the agent cannot choose dates):
   EXPLORE  2023-07-15 .. today   (all past experiments lived here)
   LOCKBOX  2021-07-15 .. 2023-07-14  (never touched by any run to date;
            chosen over "most recent" because F1b's pooled window already
-           consumed recent data - see E16/E17)
+           consumed recent data — see E16/E17)
 """
 from __future__ import annotations
 
 import hashlib
 import json
 import sys
+import traceback
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -44,13 +45,13 @@ CONFIRM_T_BAR = 2.0       # lockbox calendar-time portfolio, one-shot
 EXPLORE = ("2023-07-15", date.today().isoformat())
 LOCKBOX = ("2021-07-15", "2023-07-14")
 
-# item_not: complement filter (director wish 2026-07-19) - e.g. item_not='2.02'
+# item_not: complement filter (director wish 2026-07-19) — e.g. item_not='2.02'
 # expresses 'all 8-Ks EXCEPT earnings items' as ONE pre-registered trial
 # instead of differencing two runs. Grammar addition only; the bars, windows,
 # verdict logic, and lockbox mechanics above are untouched.
 ALLOWED_PARAMS = {
     # ic_weighting: rolling trailing-IC signal weights (director wish
-    # 2026-07-26) - adaptive combining, mechanistically distinct from a static
+    # 2026-07-26) — adaptive combining, mechanistically distinct from a static
     # blend re-roll. Grammar addition only; the bars, windows, verdict logic,
     # and lockbox mechanics above are untouched.
     "signal_backtest": {"w_momentum", "w_reversal", "w_low_vol", "rebalance_days",
@@ -74,7 +75,7 @@ def load_registry() -> dict:
     # Immutable de-dupe set: a discovery spec that has already RUN must never
     # run again, no matter what the mutable hypotheses.yaml status says (the
     # director or a human editing the file can silently reset a "done" back to
-    # "pending" - re-running would re-inflate the family's Bonferroni trial
+    # "pending" — re-running would re-inflate the family's Bonferroni trial
     # count, exactly the data-snooping the armor exists to prevent). Migrate
     # once from the append-only results ledger so past runs are recognized.
     if "discovery_hashes" not in reg:
@@ -95,8 +96,11 @@ def _discovery_hashes_from_results() -> dict:
         except json.JSONDecodeError:
             continue
         # rows predating phase-tagging (N0015-N0020) were all discovery runs;
-        # only explicit confirmation rows are excluded from the dedupe set
-        if row.get("phase", "discovery") == "discovery" and row.get("spec"):
+        # only explicit confirmation rows are excluded from the dedupe set.
+        # ERROR rows are excluded too: a crash observed no data, so its hash
+        # must not block a retry (same rule already_run_discovery applies).
+        if (row.get("phase", "discovery") == "discovery" and row.get("spec")
+                and row.get("verdict") != "ERROR"):
             out[spec_hash(row["spec"])] = row.get("id")
     return out
 
@@ -116,17 +120,49 @@ def spec_hash(spec: dict) -> str:
 
 
 def harness_version() -> str:
-    blob = b""
-    for f in ("harness.py", "primitives.py"):
-        p = ROOT / f
-        if p.exists():
-            blob += p.read_bytes()
-    return hashlib.md5(blob).hexdigest()[:12]
+    """Fingerprint the calculation, including imported maths and config.
+
+    Hashing only harness/primitives did not notice changes to the backtest,
+    Sharpe/HAC math, signal construction or cost settings. Old stamps remain
+    in the append-only record; new results identify their full source inputs.
+    Credentials, live state and research verdicts are deliberately excluded.
+    """
+    project = ROOT.parent
+    paths = [ROOT / f for f in ("harness.py", "primitives.py", "h1_event_study.py")]
+    paths.append(project / "config" / "config.yaml")
+    for directory in ("backtest", "core", "systems"):
+        paths.extend((project / directory).rglob("*.py"))
+    digest = hashlib.sha256()
+    for path in sorted(set(paths)):
+        if path.is_file():
+            digest.update(str(path.relative_to(project)).encode() + b"\0")
+            digest.update(path.read_bytes() + b"\0")
+    return digest.hexdigest()[:12]
 
 
 def universe_hash() -> str:
     p = ROOT.parent / "data" / "universe" / "equities.json"
     return hashlib.md5(p.read_bytes()).hexdigest()[:12] if p.exists() else "seed45"
+
+
+def format_error(exc: BaseException, frames: int = 3, max_len: int = 400) -> str:
+    """TYPE at file.py:LINE in func <- caller.py:LINE in caller: message.
+    Location-FIRST on purpose: the director/engineer context builders truncate
+    error strings at 300 chars, so the frames must precede a possibly-long
+    message. Innermost frame first. Falls back to 'TYPE: msg' when there is no
+    traceback. Never raises."""
+    try:
+        tb = traceback.extract_tb(exc.__traceback__)
+    except Exception:
+        tb = None
+    try:
+        if tb:
+            where = " <- ".join(f"{Path(f.filename).name}:{f.lineno} in {f.name}"
+                                for f in reversed(tb[-frames:]))
+            return f"{type(exc).__name__} at {where}: {exc}"[:max_len]
+        return f"{type(exc).__name__}: {exc}"[:max_len]
+    except Exception:
+        return type(exc).__name__
 
 
 # ------------------------------------------------------------- validation --
@@ -139,17 +175,53 @@ def validate_spec(spec: dict) -> str | None:
         return f"illegal params {sorted(extra)}"
     for k in ("start", "end", "window", "lockbox"):
         if k in spec.get("params", {}) or k in spec:
-            return "specs may not choose dates - windows are harness-owned"
+            return "specs may not choose dates — windows are harness-owned"
+    # Pre-registration integrity: a spec carrying a prereg hash must still BE
+    # that experiment. spec_hash covers type/params/family only, so bookkeeping
+    # keys (status, result_id, source, rationale, name) may change freely —
+    # only the experiment itself is pinned. N0025 (2026-07-31): a prereg-only
+    # yaml recovery stripped the params blocks; the default static blend ran and
+    # was recorded under the ic-adaptive label, and its stripped twin hashed
+    # identical to it and was dedupe-marked 'done' without ever running.
+    if spec.get("prereg") and spec_hash(spec) != spec["prereg"]:
+        return (f"spec no longer matches its pre-registration "
+                f"(hash {spec_hash(spec)} != registered {spec['prereg']}) — "
+                f"params were altered or lost after registration; a registered "
+                f"spec must run exactly as registered. Re-propose it as a new "
+                f"spec.")
     fam = load_registry()["families"].get(_family_of(spec))
     if fam and fam.get("status") in ("burned", "confirmed"):
-        return f"family '{_family_of(spec)}' is {fam['status']} - closed to new trials"
+        return f"family '{_family_of(spec)}' is {fam['status']} — closed to new trials"
     return None
 
 
 def already_run_discovery(spec: dict) -> str | None:
-    """Result id if this exact spec (by hash) has already had a discovery run,
-    else None. Immutable - survives any rewrite of the mutable queue file."""
-    return load_registry().get("discovery_hashes", {}).get(spec_hash(spec))
+    """Result id if this exact spec (by hash) has already had a discovery run
+    that OBSERVED DATA, else None. Immutable — survives any rewrite of the
+    mutable queue file.
+
+    An ERROR row is not an answer: the run crashed before any metric existed,
+    so zero bits were observed and re-running the identical registered spec
+    inflates nothing. The verdict is consulted in the ledger rather than
+    trusting the hash alone, which also unblocks legacy ERROR hashes recorded
+    before this fix (e.g. N0026). The failure direction is deliberate: if the
+    ledger is missing, unreadable, or the row cannot be found, the dedupe
+    HOLDS — a read failure must never widen reruns.
+    """
+    rid = load_registry().get("discovery_hashes", {}).get(spec_hash(spec))
+    if rid is None:
+        return None
+    try:
+        for line in RESULTS.read_text().splitlines():
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if row.get("id") == rid:
+                return None if row.get("verdict") == "ERROR" else rid
+    except Exception:
+        return rid          # unreadable ledger -> dedupe holds
+    return rid              # row not found -> dedupe holds
 
 
 def register_spec(spec: dict) -> str:
@@ -214,7 +286,7 @@ def verdict_of(spec: dict, metrics: dict, family_trials: int = 1) -> str:
 
 def confirmation_verdict(metrics: dict) -> str:
     """One-shot lockbox bar (pre-registered): t>=2.0 AND positive net
-    annualized return. No multiplicity - it is a single test. For backtest
+    annualized return. No multiplicity — it is a single test. For backtest
     confirmations t is derived from the lockbox-window Sharpe."""
     t = metrics.get("t")
     if t is None and metrics.get("sharpe") is not None and metrics.get("n_days"):
@@ -246,7 +318,13 @@ def record(spec: dict, metrics: dict | None, error: str | None,
         fam["status"] = "candidate"
         fam["candidate_spec"] = {k: spec.get(k) for k in
                                  ("name", "type", "params", "family")}
-    if phase == "confirmation":
+    # An ERROR spends nothing and reveals nothing: the exception happened before
+    # any metric existed, so zero bits about the lockbox outcome were observed.
+    # The family therefore stays 'candidate' and pending_confirmation() hands it
+    # back tomorrow night; the ERROR row is still appended to RESULTS so every
+    # attempt on the lockbox is visible to an auditor. (A discovery ERROR does
+    # consume a trial above — by policy, counters never decrement.)
+    if phase == "confirmation" and verdict != "ERROR":
         fam["confirmations_used"] += 1
         fam["status"] = "confirmed" if verdict == "CONFIRMED" else "burned"
 
@@ -262,7 +340,9 @@ def record(spec: dict, metrics: dict | None, error: str | None,
     reg["runs"] = (reg.get("runs", []) + [
         {"id": entry["id"], "type": spec.get("type"), "family": fam_name,
          "phase": phase, "verdict": verdict}])[-500:]
-    if phase == "discovery":
+    # A crashed run observed no data, so its hash must not block a deliberate
+    # retry of the identical registered spec; the trial above was still consumed.
+    if phase == "discovery" and verdict != "ERROR":
         reg.setdefault("discovery_hashes", {})[spec_hash(spec)] = entry["id"]
     save_registry(reg)
     with open(RESULTS, "a") as fh:
@@ -308,5 +388,5 @@ def run_confirmation(family: str) -> dict:
     try:
         metrics = execute_spec(conf_spec, window="lockbox")
     except Exception as exc:
-        error = f"{type(exc).__name__}: {exc}"
+        error = format_error(exc)
     return record(conf_spec, metrics, error, phase="confirmation")

@@ -1,6 +1,6 @@
 """Key-readiness tests: Anthropic chain, Polygon parser, factory, sector cap.
 
-All offline - fake clients / fake payloads. These prove that dropping API keys
+All offline — fake clients / fake payloads. These prove that dropping API keys
 into .env is the ONLY remaining step to activate the paid stack.
 """
 import json
@@ -68,7 +68,7 @@ def test_anthropic_pm_parses_structured_output():
         "only when the clock does.")
     assert kw["thinking"] == {"type": "adaptive"}, "this book must reason"
     assert kw["output_config"]["effort"] == "high", (
-        "effort is pinned, not defaulted - a future default change must not "
+        "effort is pinned, not defaulted — a future default change must not "
         "quietly move what the experiment measures")
     assert kw["max_tokens"] >= 16000, (
         "thinking and the response share this budget on Opus 5. Truncation "
@@ -168,3 +168,113 @@ def test_governor_sector_cap_ignores_when_within():
     gov = RiskGovernor(max_sector=0.25, sectors={"A": "tech"})
     d = gov.assess(pd.Series({"A": 0.10}))
     assert abs(d.weights["A"] - 0.10) < 1e-9 and not d.actions
+
+
+# --- E63f: measured tokens, declared prices, no invented dollars --------------
+def test_the_scorer_records_measured_token_usage():
+    """Before this, `.usage` appeared in NO source file while every call had it
+    in hand. That is why a $30 night was invisible and why the estimate of it
+    was 3x low."""
+    from systems.s2_news.sentiment import AnthropicScorer
+
+    class Usage:
+        input_tokens, output_tokens = 1234, 56
+
+    class Resp:
+        stop_reason = "end_turn"
+        usage = Usage()
+        content = [type("B", (), {"type": "text",
+                                  "text": '{"score":0.5,"confidence":0.8}'})()]
+
+    class Client:
+        class messages:
+            @staticmethod
+            def create(**kw):
+                return Resp()
+
+    sc = AnthropicScorer(client=Client())
+    sc.score("MSFT beats on earnings")
+    assert sc.last_usage == {"input_tokens": 1234, "output_tokens": 56,
+                             "model": "claude-haiku-4-5"}
+
+
+def test_dollars_are_tokens_times_a_declared_price_and_never_invented(tmp_path):
+    """Tokens are measured. The price is an owner input in config. A model with
+    no declared price contributes tokens and NO dollars, because a fabricated
+    price is exactly how the last spend estimate came out 3x low."""
+    from core.config import CONFIG
+    from runtime.live import LiveRuntime
+
+    rt = LiveRuntime(state_path=str(tmp_path / "state.json"))
+    rt.state["llm_budget"] = {"date": "2026-08-12"}
+
+    # opus-5 has a declared price: 1M in + 1M out = 5.0 + 25.0
+    rt._record_llm_usage("pm", {"input_tokens": 1_000_000,
+                                "output_tokens": 1_000_000,
+                                "model": "claude-opus-5"})
+    assert abs(rt.state["llm_budget"]["usd"] - 30.0) < 1e-9
+    assert rt.state["llm_budget"]["tokens"]["pm"]["input"] == 1_000_000
+
+    # haiku has none: tokens counted, no dollars invented, model surfaced
+    before = rt.state["llm_budget"]["usd"]
+    rt._record_llm_usage("scorer", {"input_tokens": 500_000,
+                                    "output_tokens": 10_000,
+                                    "model": "claude-haiku-4-5"})
+    assert rt.state["llm_budget"]["usd"] == before, "a price was invented"
+    assert rt.state["llm_budget"]["tokens"]["scorer"]["input"] == 500_000
+    assert "claude-haiku-4-5" in rt.state["llm_budget"]["unpriced_models"]
+    assert CONFIG["llm"]["prices_usd_per_mtok"]["claude-opus-5"]["input"] == 5.0
+
+
+def test_scorer_usage_accumulates_across_every_call_in_a_tick():
+    """E65. The first version of this accounting recorded `last_usage` and the
+    runtime read it once per tick, but TieredScorer calls the scorer up to
+    llm_budget times in that tick - so only the final call was ever counted.
+
+    Caught by the arithmetic, not by a test: the live book showed 264 scorer
+    calls against 5,472 input tokens, which is 20.7 tokens per call. No headline
+    prompt plus system prompt is 20 tokens. The instrument built to measure spend
+    was itself understating it, which is the same defect class it was built to
+    close."""
+    from systems.s2_news.sentiment import AnthropicScorer
+
+    class Usage:
+        input_tokens, output_tokens = 300, 25
+
+    class Resp:
+        stop_reason = "end_turn"
+        usage = Usage()
+        content = [type("B", (), {"type": "text",
+                                  "text": '{"score":0.4,"confidence":0.7}'})()]
+
+    class Client:
+        class messages:
+            @staticmethod
+            def create(**kw):
+                return Resp()
+
+    sc = AnthropicScorer(client=Client())
+    for _ in range(5):
+        sc.score("some headline")
+
+    assert sc.last_usage["input_tokens"] == 300, "last call still reported"
+    assert sc.usage_total["input_tokens"] == 1500, (
+        f"five calls at 300 input tokens must total 1500, got "
+        f"{sc.usage_total['input_tokens']} - the accumulator is sampling, not summing")
+    assert sc.usage_total["output_tokens"] == 125
+    assert sc.usage_total["model"] == "claude-haiku-4-5"
+
+
+def test_the_runtime_drains_the_total_not_the_last_call():
+    """The other half: an accumulator nobody drains is the same bug in a new
+    place. Pinned behaviourally would need a full news tick; pinned here at the
+    seam, because the failure mode is reading the wrong attribute name."""
+    import inspect
+
+    import runtime.live as live_mod
+
+    src = inspect.getsource(live_mod.LiveRuntime)
+    assert 'getattr(llm, "usage_total"' in src, (
+        "the scorer's accumulated usage is no longer drained; spend will be "
+        "undercounted by roughly the number of calls per tick")
+    assert 'getattr(pm, "usage_total"' in src

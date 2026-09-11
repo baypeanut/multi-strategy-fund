@@ -1,4 +1,4 @@
-"""E17b: vectorized calendar_time_daily must match the old loop, and scale."""
+"""Event calculation matches a causal close-decision loop and scales."""
 import time
 
 import numpy as np
@@ -24,14 +24,21 @@ def _synth(n_days=80, n_names=6, n_events=40, seed=3):
 
 
 def _brute_force(tab, px, dates, entry_lag, exit_lag, cost_per_active):
-    """Literal reimplementation of the ORIGINAL O(days x events) loop."""
+    """Independent slow reference: yesterday's observable positions earn today."""
     rets = {s: px[s]["close"].pct_change() for s in px if s != "SPY"}
     daily = []
-    for d in dates:
+    for i, d in enumerate(dates):
         al, ash = [], []
+        if i == 0:
+            daily.append(0.0)
+            continue
+        decision_date = dates[i - 1]
         for _, ev in tab.iterrows():
-            delta = (d - ev["date"]).days
-            if entry_lag <= delta <= exit_lag and ev["ticker"] in rets:
+            delta = (decision_date - ev["date"]).days
+            reaction_dates = rets[ev["ticker"]].dropna().index
+            available = reaction_dates[reaction_dates >= ev["date"]]
+            if (len(available) >= 2 and decision_date >= available[1]
+                    and entry_lag <= delta <= exit_lag and ev["ticker"] in rets):
                 (al if ev["ar01"] > 0 else ash).append(ev["ticker"])
         n_pos = len(al) + len(ash)
         if n_pos < 4:

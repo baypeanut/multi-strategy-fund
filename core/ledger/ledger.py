@@ -1,4 +1,4 @@
-"""Portfolio ledger - cash, positions, P&L, and the equity curve.
+"""Portfolio ledger — cash, positions, P&L, and the equity curve.
 
 Single source of truth for accounting. Every fill mutates exactly one position
 and cash. Equity is marked to provided prices on demand. Realized P&L uses
@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+import math
 
 
 @dataclass
@@ -75,22 +76,25 @@ class Ledger:
         self.fills.append(fill)
 
     # --- valuation -------------------------------------------------------
-    def positions_value(self, prices: dict[str, float]) -> float:
-        total = 0.0
+    def _marked_values(self, prices: dict[str, float]) -> list[float]:
+        values = []
         for sym, pos in self.positions.items():
+            if pos.qty == 0:
+                continue
             px = prices.get(sym)
-            if px is not None:
-                total += pos.market_value(px)
-        return total
+            if px is None or not math.isfinite(px) or px <= 0:
+                raise ValueError(f"missing or invalid price for open position {sym}")
+            values.append(pos.market_value(px))
+        return values
+
+    def positions_value(self, prices: dict[str, float]) -> float:
+        return sum(self._marked_values(prices))
 
     def equity(self, prices: dict[str, float]) -> float:
         return self.cash + self.positions_value(prices)
 
     def gross_exposure(self, prices: dict[str, float]) -> float:
-        return sum(
-            abs(pos.market_value(prices.get(sym, 0.0)))
-            for sym, pos in self.positions.items()
-        )
+        return sum(abs(value) for value in self._marked_values(prices))
 
     def mark(self, prices: dict[str, float], ts: datetime | None = None) -> float:
         eq = self.equity(prices)

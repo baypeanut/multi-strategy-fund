@@ -1,14 +1,14 @@
-"""RiskWrapper - the hard, deterministic safety layer around the LLM PM.
+"""RiskWrapper — the hard, deterministic safety layer around the LLM PM.
 
 EVERY proposal from the discretionary PM passes through here before it can
 become a target. The LLM never sends orders directly. Checks:
 
-  1. schema / sanity   - finite numbers only
-  2. citation check    - symbols MUST exist in the briefing universe (else drop)
-  3. per-name cap      - |w_i| <= max_position
-  4. liquidity cap     - |w_i| * NAV <= adv_cap * ADV_i
-  5. gross cap         - sum|w_i| <= max_gross
-  6. turnover throttle - total change vs current book <= max_turnover
+  1. schema / sanity   — finite numbers only
+  2. citation check    — symbols MUST exist in the briefing universe (else drop)
+  3. per-name cap      — |w_i| <= max_position
+  4. liquidity cap     — |w_i| * NAV <= adv_cap * ADV_i
+  5. gross cap         — sum|w_i| <= max_gross
+  6. turnover throttle — total change vs current book <= max_turnover
 
 Returns sanitized weights + a list of violations (for logging/audit).
 """
@@ -51,7 +51,7 @@ class RiskWrapper:
             if w is None or (isinstance(w, float) and (math.isnan(w) or math.isinf(w))):
                 violations.append(f"drop {sym}: non-finite weight")
                 continue
-            # 2. citation check - symbol must be in the briefing universe
+            # 2. citation check — symbol must be in the briefing universe
             if sym.upper() not in self.universe:
                 violations.append(f"drop {sym}: not in universe (hallucinated)")
                 continue

@@ -1,0 +1,25 @@
+{
+  "deployed_at": "2026-09-11T02:26:11.951555+00:00",
+  "server_commit": "aa3f4a107030b413f5372d1993a0f949e0a2d01a",
+  "previous_commit": "c2d8d9cb194ee09148dad35bd6abfcdaf957909c",
+  "tick_before": 2022,
+  "clock_start": "2026-08-18",
+  "clock_resets": [
+    {
+      "from": "2026-07-11",
+      "to": "2026-08-01",
+      "ts": "2026-08-01T23:08:22.347987+00:00",
+      "why": "E49 removed the regime multiplier from S3 sizing and E50 moved the PM to a newer model. Both change what the pre-registered S3-vs-S1 pair measures, so days before this point are not comparable with days after. Same reason W3 voided everything before 2026-07-02."
+    },
+    {
+      "ts": "2026-08-18T14:05:47.484349+00:00",
+      "previous_clock_start": "2026-08-01",
+      "banked_n": 11,
+      "reason": "E64: the control arm carried an unregistered 23% net short caused by the per-name cap undoing market-neutrality. Every banked day compared S3 against quant-plus-an-accidental-market-short, not against deterministic quant, so the banked evidence answers a different question. Reset at n=11, the cheapest available moment."
+    }
+  ],
+  "paper_verified": true,
+  "active_orders_at_cutover": 0,
+  "writer_client": 18,
+  "source_hashes_verified": true
+}

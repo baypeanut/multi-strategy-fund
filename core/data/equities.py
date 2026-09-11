@@ -1,4 +1,4 @@
-"""Equity data provider (free) - yfinance for history, ADV, and last price.
+"""Equity data provider (free) — yfinance for history, ADV, and last price.
 
 yfinance is free and sufficient for daily/4h-cadence strategies. We never use
 it for sub-minute data. History is split/dividend-adjusted via auto_adjust.
@@ -11,6 +11,7 @@ from .base import OHLCV_COLUMNS
 
 
 class EquityDataProvider:
+    PROVIDER_NAME = "yfinance"
     def __init__(self) -> None:
         try:
             import yfinance as yf  # noqa: F401

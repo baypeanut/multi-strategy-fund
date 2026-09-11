@@ -2,10 +2,10 @@
 
 Drop-in replacement for EquityDataProvider: same `history()` / `last_price()`
 contract (dict of lowercase-OHLCV DataFrames). Daily aggregates, split-adjusted
-(`adjusted=true`). Starter tier is 15-min delayed - fine for our hourly cadence.
+(`adjusted=true`). Starter tier is 15-min delayed — fine for our hourly cadence.
 
 At 500 names the runtime uses a two-tier pattern:
-- light tick: `latest_grouped()` - the WHOLE market's daily bar in ONE call
+- light tick: `latest_grouped()` — the WHOLE market's daily bar in ONE call
   (marking prices + bar date), instead of 500 per-symbol requests
 - heavy tick (rebalance only): `history()` with a thread pool (Starter has
   unlimited calls, so parallelism is free)
@@ -37,6 +37,7 @@ def _get(url: str, timeout: int = 30) -> dict:
 
 
 class PolygonDataProvider:
+    PROVIDER_NAME = "polygon"
     def __init__(self, api_key: str | None = None) -> None:
         self.api_key = api_key or get_key("POLYGON_API_KEY")
         if not self.api_key:

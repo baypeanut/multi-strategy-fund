@@ -1,9 +1,8 @@
-"""IBKR clientId rotation (E27 completion): an abandoned hung connection must
-never block the NEXT attempt on a 'clientId already in use' collision - on the
-refresh path (already rotating since E27) AND the mirror path (was fixed at
-the base id; observed live 2026-07-23: one mirror timeout wedged every
-subsequent hourly sync until the Gateway's daily restart). All offline - the
-broker class is replaced by a capturing fake, no network."""
+"""Stable order ownership plus bounded, non-overlapping broker jobs.
+
+The old rotation hid working orders from cancellation. Reads retain a separate
+client band; the writer retains ownership and expires overdue work. Offline.
+"""
 from datetime import datetime, timezone
 
 import pandas as pd
@@ -60,26 +59,24 @@ def _refresh_ids(rt, ticks):
     return ids
 
 
-def test_mirror_client_id_rotates_across_ticks(rt):
-    # a hung, abandoned mirror thread's clientId can't block the next sync
+def test_mirror_client_id_preserves_order_ownership_across_ticks(rt):
     ids = _mirror_ids(rt, [0, 1, 2])
-    assert len(set(ids)) == 3
+    assert len(set(ids)) == 1
 
 
 def test_mirror_never_uses_fixed_base_id(rt):
-    # the old fixed id (base 7) is retired from live use entirely - a stale
+    # the old fixed id (base 7) is retired from live use entirely — a stale
     # session parked on it by ANY abandoned thread can never collide again
     ids = _mirror_ids(rt, range(8))
     assert 7 not in ids
 
 
 def test_mirror_and_refresh_bands_disjoint(rt):
-    # mirror uses base+11..+18, refresh base+1..+8 - over a full 8-tick
-    # rotation cycle the two paths can never collide with each other
+    # Stable writer base+11 is outside the read-only base+1..+8 band.
     m = set(_mirror_ids(rt, range(8)))
     r = set(_refresh_ids(rt, range(8)))
     assert m.isdisjoint(r)
-    assert len(m) == 8 and len(r) == 8
+    assert len(m) == 1 and len(r) == 8
 
 
 def test_refresh_rotation_regression(rt):

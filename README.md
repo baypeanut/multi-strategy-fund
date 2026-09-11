@@ -1,5 +1,14 @@
 # Multi-Strategy Systematic Fund
 
+**2026-09 quant audit:** profitability is unproven. Event-timing lookahead,
+backtest accounting and paper order ownership have been corrected. Realized
+risk and live capacity constraints still need work. See the
+[full audit](QUANT_AUDIT_2026-09-10.md); historical confirmation labels below
+are not proof of an executable edge.
+
+Deployed to the paper service on 2026-09-11 UTC.
+[Deployment verification and remaining work](DEPLOYMENT_2026-09-11.md).
+
 Five strategy books trade the same universe on paper money so they can be
 compared honestly before any real capital is at risk. The strategies are the
 easy part. The interesting part is the machinery that stops me from fooling
@@ -39,7 +48,7 @@ flowchart LR
     M1["<b>Cross-sectional ranking</b><br/>momentum, volatility, reversal<br/>fixed rules, nothing is learned"] --> S1["<b>S1 Quant</b><br/>the control group"]
     M2["<b>Sentiment scoring</b><br/>keyword tiers first, a small<br/>model only where it matters"] --> S2["<b>S2 News</b>"]
     M3["<b>Language model reasoning</b><br/>over a structured briefing,<br/>output forced into a fixed schema"] --> S3["<b>S3 Discretionary</b>"]
-    M5["<b>Event study</b><br/>drift in a fixed window after<br/>a company files an 8-K"] --> S5["<b>S5 Event</b><br/>the one proven edge"]
+    M5["<b>Event study</b><br/>drift in a fixed window after<br/>a company files an 8-K"] --> S5["<b>S5 Event</b><br/>validation under review"]
 
     S1 --> E
     S2 --> E
@@ -52,7 +61,7 @@ flowchart LR
     S5 --> V
     E --> V
 
-    V["<b>One volatility target</b><br/>every book is scaled to the same risk,<br/>so a win cannot just be a bigger bet"]
+    V["<b>One volatility target</b><br/>one ex-ante target;<br/>realized risk must also be compared"]
     V --> G["<b>Risk governor</b><br/>position, sector and liquidity caps,<br/>drawdown gates, daily loss kill switch"]
     G --> B["<b>Paper broker</b><br/>square-root impact plus spread.<br/>Costs are deliberately overstated"]
     B --> L["<b>Scoreboard</b><br/>five separate track records,<br/>compared by a statistical test"]
@@ -113,27 +122,28 @@ get to decide that something is true.
 | S2 News | lexicon tier plus a cheap model for headline scoring | Yahoo RSS, SEC 8-K |
 | S3 Discretionary | a frontier model inside a hard risk wrapper | S1 + S2 + regime briefing |
 | S4 Combined | risk-parity ensemble of the above | S1, S2, S3 |
-| S5 Event | the one confirmed edge, running forward out of sample | 8-K post-filing drift |
+| S5 Event | event candidate; historical validation under review | 8-K post-filing drift |
 
 S1 is the control group. If the model-driven books cannot beat plain code, the
 models are only adding cost, and I would rather learn that on paper. All five
-books share one ex-ante vol normalization so the race is fair.
+books share an ex-ante volatility target; the audit found unequal realized
+risk, so target normalization alone does not establish a fair comparison.
 
 ## The rule I wrote before I had any results
 
 No superiority claim before 60 trading days **and** p < 0.05, on a paired
 Diebold-Mariano test with Newey-West standard errors, computed server side.
 
-Today that test reads n = 20, p = 0.95. The system reports
-`verdict_allowed: false` and I do not get to argue with it. Pre-registering the
-rule is the whole point: I decided what would convince me before I could see
-which answer I would prefer.
+The 2026-09-09 snapshot has n = 16 and p = 0.7555, with realized S3/S1
+volatility ratio 3.321. The day filter also includes an exchange holiday and
+the unfinished snapshot day. No superiority claim is supported.
 
 ## Research record
 
 25 experiments so far. 9 FAIL, 1 PASS, 1 CONFIRMED, the rest open or superseded.
-One confirmed edge out of 25 tries is roughly what an honest process should
-look like.
+These historical labels predate the quant audit. The event confirmation
+requires fresh validation after the timing and implementation corrections;
+see [record corrections](research/CORRECTIONS.md).
 
 The harness is built to make a false positive expensive:
 

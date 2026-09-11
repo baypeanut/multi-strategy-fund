@@ -64,7 +64,7 @@ def test_rho_vectorization_matches_loop_exactly():
 
 
 def test_rho_equivalence_heteroskedastic():
-    # unequal vols + correlation structure - the hard case for the algebra
+    # unequal vols + correlation structure — the hard case for the algebra
     base = rng.normal(0, 0.01, (400, 1))
     noise = rng.normal(0, 1, (400, 10)) * rng.uniform(0.005, 0.05, 10)
     data = pd.DataFrame(base + noise)
@@ -80,4 +80,4 @@ def test_lw_full_matrix_properties_at_scale():
     M = cov.to_numpy()
     assert np.allclose(M, M.T, atol=1e-12)
     assert np.all(np.linalg.eigvalsh(M) > -1e-10)      # PSD
-    assert elapsed < 5.0, f"LW at n=500 took {elapsed:.1f}s - too slow for live"
+    assert elapsed < 5.0, f"LW at n=500 took {elapsed:.1f}s — too slow for live"

@@ -1,7 +1,7 @@
 """S3 decisions ledger (S3-v2 dataset): append-only capture of every PM
 decision + the next bar's forward returns.
 
-The ledger is strictly PASSIVE - these tests pin the row schema (decided AND
+The ledger is strictly PASSIVE — these tests pin the row schema (decided AND
 held paths), hash determinism, the fail-safe write, the forward-backfill
 semantics, and that a full offline _run_systems rebalance lands the decision
 in the file WITHOUT changing the book it returns.

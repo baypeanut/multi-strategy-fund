@@ -3,7 +3,7 @@
 The decisive PEAD-vs-novel read is 'all 8-Ks EXCEPT earnings items' in ONE
 pre-registered run. item_not must be admissible grammar on the three event
 types, hash as a DISTINCT trial, filter the event table by exact complement,
-and survive into a lockbox confirmation spec. All offline - no network."""
+and survive into a lockbox confirmation spec. All offline — no network."""
 import pandas as pd
 import pytest
 
@@ -33,7 +33,7 @@ def test_item_not_rejected_on_signal_backtest():
 
 def test_item_vs_item_not_are_distinct_trials():
     # the subset spec and its complement must never collide in the immutable
-    # discovery-dedupe set - they are different experiments
+    # discovery-dedupe set — they are different experiments
     a = {"type": "event_study", "family": "f",
          "params": {"n_names": 100, "item": "2.02"}}
     b = {"type": "event_study", "family": "f",
@@ -103,7 +103,7 @@ def test_event_table_no_filter_keeps_all(monkeypatch):
 # --- confirmation propagation --------------------------------------------------
 def test_confirmation_carries_item_not(monkeypatch):
     """A candidate discovered WITH the exclusion must be confirmed WITH the
-    exclusion - run_confirmation's param filter now admits item_not into the
+    exclusion — run_confirmation's param filter now admits item_not into the
     calendar-time instrument."""
     spec = {"name": "x", "family": "famC", "type": "event_study",
             "params": {"n_names": 100, "item_not": "2.02"}}

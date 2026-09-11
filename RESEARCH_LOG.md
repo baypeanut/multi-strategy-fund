@@ -487,3 +487,40 @@ Keep the "Running Scorecard" and "Open Hypotheses" sections updated.
   watch-item, not an outage. Also: extend fund-watchdog to alert on a stale
   tick at a much tighter bound than 26h (an 8h freeze should page within ~2h).
 
+## 2026-09-10 — Local quant audit of the running c2d8d9c snapshot
+
+See QUANT_AUDIT_2026-09-10.md for the full findings, fixes, remaining risks
+and offline reproduction commands. Production evidence is as of 2026-09-09
+17:44 UTC; this entry does not describe a new live strategy trial.
+
+Independent counterexamples exposed event-timing lookahead, implicit free
+rebalancing/static-NAV backtest costs, single-trial DSR false certainty,
+an HAC divisor error, a provider guard that authorized its own fallback,
+one-tick-late governor marking, incomplete paid-call accounting, and broker
+cancellation that could not see orders owned by rotating client IDs.
+
+Local corrections: 636 tests passed, 1 skipped; eight targeted mutations
+were caught. Cached event timing Sharpe changes from 1.52 to 0.65 on the
+same 1,529 events and 752 evaluated dates. This is NOT the N0021 lockbox
+reproduction or a re-grade. CORRECTIONS.md records the interpretive limit.
+
+No production patch/restart, order/cancellation, timer enable, clock reset,
+model change or registry edit was performed. Live accounting, final
+liquidity/spot constraints, execution ownership/timeouts, session calendars
+and S3 current-position wiring remain open; see the audit before deployment.
+
+## 2026-09-11 UTC — Quant audit deployed; stable paper order ownership
+
+Owner authorized deployment and delegated the implementation decisions.
+Applied the audited patch to current server files after backup and hash
+verification, and committed as trader (aa3f4a1). Added a stable order client,
+bounded requests, cancellation of overdue work and a single active broker
+job. Existing strategy/model/risk numbers and the 2026-08-18 clock remain.
+
+Validation: server baseline 608 passed/1 skipped; server candidate 641
+passed/1 skipped; eight audit plus three execution mutations caught. Read-only
+paper-account preflight used the new writer ID and planned 101 orders with
+zero submitted and no API errors. There were no open orders at the cutover.
+First completed tick: 2022 -> 2023, polygon/polygon basis, no halt, broker
+refresh successful. Both services active; paid research timer still disabled.
+Full verification and remaining work: DEPLOYMENT_2026-09-11.md.

@@ -2,7 +2,7 @@
 
 Single source of truth for API credentials. Keys live in the repo-root .env on
 the server (0600, never committed) or in real environment variables; env vars
-win. Every provider asks here - presence of a key is what activates paid
+win. Every provider asks here — presence of a key is what activates paid
 integrations (Anthropic, Polygon, Sharadar), so the system upgrades itself the
 moment a key lands in .env, and degrades gracefully when absent.
 """

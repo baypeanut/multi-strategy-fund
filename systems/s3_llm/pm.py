@@ -8,7 +8,7 @@ Fallback chain (activation is automatic, driven by key/service presence):
 
 Every PM records `last_source` so attribution can prove which brain actually
 made each decision. All PMs return a raw proposal dict; the RiskWrapper
-sanitizes it afterward - no PM ever sends orders.
+sanitizes it afterward — no PM ever sends orders.
 """
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ class HeuristicPM:
         if not scores:
             return {}
         # demean (market-neutral-ish), normalize to unit gross. Regime risk
-        # scaling is NOT applied here - the runtime already scales S3's target
+        # scaling is NOT applied here — the runtime already scales S3's target
         # vol by regime.risk_scale; doing it in the PM too double-delevered
         # every heuristic-fallback day and skewed the attribution race.
         mean = sum(scores.values()) / len(scores)
@@ -88,11 +88,11 @@ class AnthropicPM:
 
     Activated automatically when ANTHROPIC_API_KEY exists (server .env). Uses
     structured outputs so the proposal is guaranteed-valid JSON. Any failure
-    (no key, SDK missing, rate limit, API error) falls back down the chain
+    (no key, SDK missing, rate limit, API error) falls back down the chain —
     the trading loop must never stall on an API problem.
 
     Cost is structurally capped by the information gate (a few calls/day) plus
-    the daily budget counter. Model default is claude-opus-5 - the strongest
+    the daily budget counter. Model default is claude-opus-5 — the strongest
     judgment for the book whose whole hypothesis is "does frontier judgment
     beat the quant control"; configurable via `llm.s3_model`.
 
@@ -105,7 +105,7 @@ class AnthropicPM:
 
     Timed to the E49 clock reset on purpose. Mixing brains inside a measurement
     window contaminates the attribution (E15b), so a model change costs a full
-    reset of the paired test - and the clock is resetting anyway. Doing it now
+    reset of the paired test — and the clock is resetting anyway. Doing it now
     is free; doing it later is not.
     """
 
@@ -162,6 +162,23 @@ class AnthropicPM:
                                "\n\nPropose the target portfolio.",
                 }],
             )
+            # E63f. Measured, not estimated. `.usage` was in hand on every
+            # call in this repo and discarded everywhere, which is why the
+            # $30 night was invisible and why a previous session guessed $11
+            # and was wrong by 3x. Tokens are a measurement; dollars are a
+            # measurement times a price the owner declares in config.
+            u = getattr(response, "usage", None)
+            _u = getattr(self, "usage_total", None) or {"input_tokens": 0,
+                                                        "output_tokens": 0}
+            _u = {"input_tokens": _u["input_tokens"] + int(getattr(u, "input_tokens", 0) or 0),
+                  "output_tokens": _u["output_tokens"] + int(getattr(u, "output_tokens", 0) or 0),
+                  "model": self.model} if u is not None else _u
+            self.usage_total = _u
+            self.last_usage = {
+                "input_tokens": int(getattr(u, "input_tokens", 0) or 0),
+                "output_tokens": int(getattr(u, "output_tokens", 0) or 0),
+                "model": self.model,
+            } if u is not None else None
             if response.stop_reason == "refusal":
                 raise ValueError("model refused")
             text = next(b.text for b in response.content if b.type == "text")

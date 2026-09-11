@@ -186,3 +186,59 @@ def test_runtime_marks_s5_when_enabled(tmp_path, monkeypatch):
     assert "s5" in rt.state["systems"]
     assert rt.state["systems"]["s5"]["equity"] > rt.nav0
     assert len(rt.state["equity_history"]["s5"]) == 1
+
+
+def test_s5_directionality_is_the_signal_and_must_not_be_neutralised():
+    """E64b. Same symptom as S1, OPPOSITE diagnosis, and this is the note that
+    stops the wrong fix.
+
+    On 2026-08-18 S1 was found net -23% short because the per-name cap had undone
+    its market-neutralisation - an artifact, and it was fixed. S5 was net -28.6%
+    on the same day. Anyone reasoning by analogy would "fix" S5 the same way and
+    silently destroy the fund's only forward-OOS test.
+
+    S5's net exposure is an OUTPUT, not a bug. Raw weight per name is the net
+    signed 8-K unit count: +1 where the filing's AR(0,1) market-model reaction
+    was positive, -1 where negative, held from filing+entry_lag to
+    filing+exit_lag. So the book's net is simply the balance of positive versus
+    negative filing reactions currently in the window. On that day: 110 active
+    units across 86 names, 33 long and 53 short.
+
+    The engine's own docstring is the contract - "a byte-for-byte forward version
+    of research primitive calendar_time_daily (the confirmation instrument)" with
+    "ZERO free parameters beyond the pre-registered confirmed spec". Demeaning it
+    would force an equal long/short book regardless of what the events said,
+    which is NOT what the confirmed instrument does, and the forward record would
+    stop being comparable to the lockbox confirmation it exists to test.
+
+    S5 therefore goes through scale_to_target_vol (vol target and caps, shared
+    with every book, the fair race) and NEVER through construct_signal_portfolio
+    (which demeans). This test pins that distinction."""
+    import inspect
+
+    import systems.s5_event.engine as eng
+
+    src = inspect.getsource(eng)
+    assert "scale_to_target_vol" in src, (
+        "S5 must share the common vol normalisation (fair race)")
+    assert "construct_signal_portfolio" not in src, (
+        "S5 has been routed through the demeaning constructor. That forces an "
+        "equal long/short book regardless of the event signs, which is not what "
+        "calendar_time_daily does, and it breaks the byte-for-byte replication "
+        "the forward-OOS test depends on.")
+    assert "market_neutral" not in src, (
+        "S5 must not take a market_neutral flag: its direction is the signal")
+
+    # and prove it behaviourally: an all-negative event set must stay net short
+    import numpy as np
+    import pandas as pd
+
+    names = [f"N{i}" for i in range(6)]
+    cov = pd.DataFrame(np.eye(6) * (0.02 ** 2), index=names, columns=names)
+    events = [(n, "2026-01-05", -1) for n in names]      # every reaction negative
+    res = eng.S5EventEngine(entry_lag=2, exit_lag=10, min_units=4).generate(
+        events, today="2026-01-08", cov=cov)
+    assert res.weights.sum() < 0, (
+        "an all-negative event set produced a non-short book; the event signs "
+        "are no longer reaching the weights")
+    assert (res.weights <= 0).all(), "no name should be long on a negative-only set"

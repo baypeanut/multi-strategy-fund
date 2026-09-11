@@ -10,8 +10,6 @@ from research import security_audit as S
 
 
 def test_credential_literals_are_caught():
-    # Synthetic. These two literals are the bait the rule has to bite on, so
-    # they have to be shaped like the real thing. Neither is, or ever was, a key.
     src = '''
 API_KEY = "sk-ant-abcdefghijklmnop1234"
 password = "hunter2000000000000000"

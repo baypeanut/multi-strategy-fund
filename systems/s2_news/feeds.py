@@ -1,4 +1,4 @@
-"""Live news feeds for System 2 - all free.
+"""Live news feeds for System 2 — all free.
 
 Two sources, one NewsItem interface:
 - Yahoo Finance per-ticker RSS: headlines with timestamps, symbol-tagged by
@@ -35,8 +35,8 @@ def _get(url: str, timeout: int = 15) -> bytes:
 
 
 def fetch_rss_headlines(symbols: list[str], per_symbol_limit: int = 10) -> list[NewsItem]:
-    """Pull per-ticker Yahoo Finance RSS headlines (parallel - the subset is
-    ~150 names hourly). Failures skip silently - a dead feed must never take
+    """Pull per-ticker Yahoo Finance RSS headlines (parallel — the subset is
+    ~150 names hourly). Failures skip silently — a dead feed must never take
     the tick down."""
     from concurrent.futures import ThreadPoolExecutor
 
@@ -81,7 +81,7 @@ def fetch_edgar_8k_items(symbols: list[str], limit_per_symbol: int = 3) -> list[
     """Recent 8-K filings as NewsItems. An 8-K is material by construction, so
     it carries a materiality boost; direction still comes from the scorer/LLM
     reading the headline flow around it (raw 8-K dates alone showed no
-    direction - see RESEARCH_LOG E2)."""
+    direction — see RESEARCH_LOG E2)."""
     client = EDGARClient()
     items: list[NewsItem] = []
     for sym in symbols:

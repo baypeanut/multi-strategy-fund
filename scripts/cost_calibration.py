@@ -7,12 +7,12 @@ step the E23 single-cost-surface work was waiting for: "costs stay pessimistic"
 is only proven when modeled costs BOUND realized costs on real executions.
 
 Fill inputs: the append-only data/fills_history.jsonl ledger (every fill the
-runtime has ever merged - see runtime/live.py) plus the state.ibkr.fills ring
+runtime has ever merged — see runtime/live.py) plus the state.ibkr.fills ring
 (300 rows, dashboard). analyze_fills dedupes by execId, so overlap between
 the two sources is harmless.
 
 Calibration set: clean-execution fills only. Every mirror session through
-2026-07-29 ran under known defects - E37 order stacking (cancel-then-plan
+2026-07-29 ran under known defects — E37 order stacking (cancel-then-plan
 shipped intra-day 07-27) and the E39/E40 full-size overnight order sized off a
 stale closed-market target that the first RTH rebalance reversed (session gate
 shipped late 07-29). scripts/mirror_reconcile.py measured 97.0% round-trip at
@@ -22,16 +22,16 @@ before CLEAN_START are excluded by default, as is any LATER session the
 reconciliation instrument flags CHURN (that means the mirror has regressed).
 --include-churn restores them for forensics only.
 
-Reference price for realized slippage: the PRIOR trading day's close - the
+Reference price for realized slippage: the PRIOR trading day's close — the
 decision price the mirror's marketable limits were sized from, and exactly
-the mid the CostModel models slippage against - fetched via Polygon
+the mid the CostModel models slippage against — fetched via Polygon
 grouped-daily (one call per unique date, cached). With no key or no network,
 slippage is reported as n/a and commissions are still calibrated.
 
 Deliberately read-only and standalone: never writes state.json, touches no
 runtime path. Honest flag it will raise immediately: config models equity
 commission at 0 bps (zero-commission-broker framing) while IBKR charges real
-commissions - if realized exceeds modeled, the pessimism invariant says a
+commissions — if realized exceeds modeled, the pessimism invariant says a
 HUMAN should raise the modeled parameter; this report only surfaces the
 evidence, it never edits config.
 
@@ -49,13 +49,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from core.broker.costs import CostModel, CostParams
+from core.broker.costs import (FALLBACK_ADV, FALLBACK_DVOL, CostModel,
+                               CostParams)
 from core.config import CONFIG
 
-# Pessimistic fallbacks - MUST match runtime/live.py, so modeled-vs-realized
+# Pessimistic fallbacks — MUST match runtime/live.py, so modeled-vs-realized
 # compares against exactly the surface the books were actually charged.
-FALLBACK_ADV = 50e6
-FALLBACK_DVOL = 0.02
+# Imported, not restated: this script compares modeled against realized, so
+# it must charge exactly the surface the books were charged.
 
 FILLS_LEDGER = Path("data/fills_history.jsonl")
 
@@ -64,7 +65,7 @@ FILLS_LEDGER = Path("data/fills_history.jsonl")
 # execs, 11% round-trip, 0.57x NAV. Everything 2026-07-24..07-29 ran under
 # order stacking and/or the stale-plan overnight reversal, i.e. self-inflicted
 # churn rather than market impact, so those fills are not calibration data.
-# Moving this date is a HUMAN decision - it defines the clean dataset the
+# Moving this date is a HUMAN decision — it defines the clean dataset the
 # impact_coef read is computed on.
 CLEAN_START = "2026-07-30"
 
@@ -92,7 +93,7 @@ def load_fills(state: dict, ledger_path: Path = FILLS_LEDGER) -> list:
 
     The ring is capped at 300 rows (dashboard); the ledger keeps everything
     (runtime/live.py appends every new fill). Overlap and the rare ring-
-    eviction re-admit are expected - analyze_fills dedupes by execId, first
+    eviction re-admit are expected — analyze_fills dedupes by execId, first
     occurrence wins, so ledger rows lead.
     """
     fills: list = []
@@ -111,9 +112,9 @@ def _churn_days(fills: list, state: dict) -> set[str] | None:
     """ISO dates the reconciliation instrument flags CHURN, or None.
 
     Loads scripts/mirror_reconcile.py BY PATH (the lazy pattern
-    the mirror view uses) so this script keeps working when
-    run as `python scripts/cost_calibration.py`. Any failure at all
-    instrument absent, summary shape changed, input it dislikes - returns None,
+    research/engineer.py's _mirror_view uses) so this script keeps working when
+    run as `python scripts/cost_calibration.py`. Any failure at all —
+    instrument absent, summary shape changed, input it dislikes — returns None,
     meaning "churn layer unavailable"; the caller then applies the date cutoff
     alone. Never raises.
     """
@@ -159,16 +160,16 @@ def _churn_days(fills: list, state: dict) -> set[str] | None:
 
 def filter_calibration_fills(fills: list, state: dict,
                              include_churn: bool = False) -> tuple[list, dict]:
-    """The calibration set - clean-execution fills only - plus a report.
+    """The calibration set — clean-execution fills only — plus a report.
 
     Total: malformed rows are skipped and counted, never raised. The only I/O
     is the by-path instrument load inside _churn_days. Exclusions:
       * every fill before CLEAN_START (the mirror-defect era: E37 stacking,
-        E39/E40 stale-plan reversal - self-inflicted churn, not impact);
+        E39/E40 stale-plan reversal — self-inflicted churn, not impact);
       * every fill on a post-CLEAN_START session the reconciliation instrument
         flags CHURN, i.e. a mirror REGRESSION, so a defect can never silently
         poison impact_coef again;
-      * every fill whose timestamp will not parse - an undatable fill cannot
+      * every fill whose timestamp will not parse — an undatable fill cannot
         be certified clean.
     include_churn=True is the forensics override: dedupe only, nothing filtered.
     """
@@ -186,7 +187,7 @@ def filter_calibration_fills(fills: list, state: dict,
         "churn_layer": "ok",
     }
 
-    # dedupe by execId first - same rule analyze_fills uses, ledger rows lead
+    # dedupe by execId first — same rule analyze_fills uses, ledger rows lead
     deduped: list = []
     seen: set[str] = set()
     for f in (fills or []):
@@ -396,7 +397,7 @@ def make_prior_close_fn(max_back: int = 5):
 
 # ------------------------------------------------------------------- report --
 def format_report(summary: dict) -> str:
-    lines = ["=== COST-SURFACE CALIBRATION - realized IBKR fills vs CostModel ==="]
+    lines = ["=== COST-SURFACE CALIBRATION — realized IBKR fills vs CostModel ==="]
     lines.append(
         f"fills: {summary['n_fills']} ({summary['n_with_slippage']} with "
         f"reference price) · notional ${summary['total_notional']:,.0f}")
@@ -408,7 +409,7 @@ def format_report(summary: dict) -> str:
     lines.append(
         "modeled bounds realized: "
         + ("n/a (no priced fills)" if frac is None else f"{frac:.0%} of priced fills")
-        + "  - the pessimism invariant wants this at 100%")
+        + "  — the pessimism invariant wants this at 100%")
     lines.append("by notional bucket:")
     for label, b in summary["buckets"].items():
         lines.append(
@@ -427,7 +428,7 @@ def format_report(summary: dict) -> str:
     lines.append(
         f"NOTE: equity commission is modeled at {comm_cfg} bps in config; IBKR "
         "charges real commissions. If realized > modeled persists, raising the "
-        "modeled parameter is a HUMAN decision - this report never edits config.")
+        "modeled parameter is a HUMAN decision — this report never edits config.")
     return "\n".join(lines)
 
 
@@ -438,7 +439,7 @@ def main() -> None:
                     help="also write data/cost_calibration.json")
     ap.add_argument("--include-churn", action="store_true",
                     help="restore defect-era (pre-CLEAN_START) and CHURN-flagged "
-                         "fills - FORENSICS ONLY; calibrating on them fits the "
+                         "fills — FORENSICS ONLY; calibrating on them fits the "
                          "cost model to a mirror bug")
     args = ap.parse_args()
 
@@ -449,7 +450,7 @@ def main() -> None:
     state = json.loads(state_path.read_text())
     fills = load_fills(state)
     if not fills:
-        print("no IBKR fills recorded yet (ring or ledger) - nothing to calibrate")
+        print("no IBKR fills recorded yet (ring or ledger) — nothing to calibrate")
         return
     kept, freport = filter_calibration_fills(
         fills, state, include_churn=args.include_churn)
@@ -460,9 +461,9 @@ def main() -> None:
           f"{freport['n_undated']} undated)")
     if freport["n_churn_flagged"] > 0:
         print(f"WARNING: post-CLEAN_START CHURN session(s) {freport['churn_days']}"
-              " - mirror regression, investigate with scripts/mirror_reconcile.py")
+              " — mirror regression, investigate with scripts/mirror_reconcile.py")
     if not kept:
-        print("no clean fills yet - the clean-execution dataset starts "
+        print("no clean fills yet — the clean-execution dataset starts "
               f"{CLEAN_START}")
         return
     rows = analyze_fills(kept, state.get("cost_inputs", {}),

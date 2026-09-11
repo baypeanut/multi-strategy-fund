@@ -1,5 +1,5 @@
 """Cost-surface calibration (director wish 2026-07-21): realized IBKR fills
-vs the modeled CostModel prediction. All offline - the reference-price
+vs the modeled CostModel prediction. All offline — the reference-price
 fetcher is injected, never the network."""
 import pytest
 
@@ -111,8 +111,8 @@ def test_bucket_edges():
 # and/or the E39/E40 stale-plan overnight reversal (97% round-trip at 21x NAV
 # on 07-27). Calibrating impact_coef on that self-inflicted churn would fit the
 # cost model to a bug, so CLEAN_START is frozen at the first verified-clean
-# session and any LATER session mirror_reconcile flags CHURN - a mirror
-# regression - drops out of the dataset automatically.
+# session and any LATER session mirror_reconcile flags CHURN — a mirror
+# regression — drops out of the dataset automatically.
 
 def test_clean_start_is_frozen_after_both_mirror_fixes():
     assert C.CLEAN_START == "2026-07-30"
@@ -134,7 +134,7 @@ def test_filter_excludes_pre_clean_start_sessions():
 
 
 def test_post_clean_start_churn_session_is_excluded():
-    # 2026-08-03: ONE symbol round-tripped five times - gross ~$3.0M, net ~0,
+    # 2026-08-03: ONE symbol round-tripped five times — gross ~$3.0M, net ~0,
     # far past mirror_reconcile's CHURN_FRAC_BAR / CHURN_GROSS_FLOOR. That is a
     # mirror REGRESSION, not market impact, so the day leaves the dataset.
     churny = [fill(id=f"c{i}", symbol="SPY",

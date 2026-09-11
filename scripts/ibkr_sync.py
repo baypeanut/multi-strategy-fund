@@ -4,7 +4,7 @@
   venv/bin/python scripts/ibkr_sync.py --plan      # compute orders, print, don't send
   venv/bin/python scripts/ibkr_sync.py --execute   # place the orders (paper account)
 
-Reads S4's FINAL weights and the latest marking prices from data/state.json
+Reads S4's FINAL weights and the latest marking prices from data/state.json —
 the same inputs the runtime's automatic mirror uses.
 """
 from __future__ import annotations
@@ -19,13 +19,21 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from core.broker.ibkr_broker import IBKRBroker, plan_equity_mirror
 from core.config import CONFIG
 
+# E52: anchored to the repo, not to the caller's working directory. This read
+# used to be a bare relative Path("data/state.json") while every other path in
+# the file resolved from __file__. Run from anywhere but the repo root it
+# either failed, or — the reason this is a finding rather than a nuisance —
+# picked up a DIFFERENT state.json that happened to sit in the cwd, and
+# --execute would then mirror those weights to a live broker account.
+STATE = Path(__file__).resolve().parent.parent / "data" / "state.json"
+
 
 def load_inputs() -> tuple[dict, dict]:
-    state = json.loads(Path("data/state.json").read_text())
+    state = json.loads(STATE.read_text())
     weights = state["systems"]["s4"].get("weights", {})
     prices = state.get("prev_prices", {})
     if state.get("halt_latched"):
-        print("!! halt latched - mirroring a FLAT book")
+        print("!! halt latched — mirroring a FLAT book")
         weights = {}
     return weights, prices
 
@@ -36,6 +44,8 @@ def main() -> None:
     g.add_argument("--recon", action="store_true")
     g.add_argument("--plan", action="store_true")
     g.add_argument("--execute", action="store_true")
+    ap.add_argument("--yes", action="store_true",
+                    help="skip the --execute confirmation (for scripted use)")
     args = ap.parse_args()
 
     cfg = dict(CONFIG.get("ibkr", {}))
@@ -86,6 +96,17 @@ def main() -> None:
                   if o.est_notional else
                   f"  {o.action:4} {o.quantity:>6} {o.symbol:<8} (exit, px unknown)")
         return
+
+    # --plan and --execute are one word apart and the second one sends orders.
+    # A typed confirmation is cheap here: this CLI exists to be run by a human
+    # on purpose, and nothing automated calls it.
+    if not args.yes:
+        n_eq = len([s for s in weights if "/" not in s])
+        print(f"about to send live orders on {cfg.get('account')} "
+              f"against {n_eq} equity targets.")
+        if input("type the account id to confirm: ").strip() != str(cfg.get("account")):
+            print("mismatch - nothing sent")
+            return
 
     report = broker.sync(weights, prices, execute=True,
                          max_position=CONFIG.risk.max_position,

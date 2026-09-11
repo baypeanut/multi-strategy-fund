@@ -1,4 +1,4 @@
-"""Telegram alerting - fire-and-forget, never raises.
+"""Telegram alerting — fire-and-forget, never raises.
 
 Uses TELEGRAM_* credentials in .env; prefixes every message with [FUND].
 Alerting must never take the trading loop down: every failure path swallows
@@ -28,7 +28,7 @@ def send_telegram(message: str, timeout: int = 10, *, urgent: bool = True) -> bo
     """Send a Telegram message.
 
     `urgent=True` (default) hits the API now. Callers that want the daily-only
-    posture must pass `urgent=False`, which is a no-op at the wire - use
+    posture must pass `urgent=False`, which is a no-op at the wire — use
     `queue_note` + `maybe_send_daily_digest` instead.
     """
     if not urgent:
@@ -64,7 +64,10 @@ def format_daily_digest(state: dict[str, Any], now: datetime) -> str:
     nav0 = float(state.get("nav0") or 0.0) or 1.0
     lines = [f"Daily summary · {now.date().isoformat()} UTC"]
     systems = state.get("systems") or {}
-    for key in ("s1", "s2", "s3", "s4"):
+    # every book the fund is actually marking — S5 (the forward shadow of the
+    # confirmed 8k-drift edge) was invisible here for its entire life because
+    # this tuple was frozen at four; a future book appears without an edit
+    for key in sorted(systems) if systems else ("s1", "s2", "s3", "s4"):
         sysd = systems.get(key) or {}
         eq = float(sysd.get("equity") or nav0)
         ret = eq / nav0 - 1.0
@@ -82,8 +85,15 @@ def format_daily_digest(state: dict[str, Any], now: datetime) -> str:
         p_s = "—" if p is None else f"{p:.3f}"
         lines.append(
             f"S3−S1 DM: n={dm.get('n')} p={p_s} "
-            f"verdict={'yes' if dm.get('verdict_allowed') else 'no'}"
+            f"statistical_gate={'yes' if dm.get('verdict_allowed') else 'no'}"
         )
+        ratio = dm.get("vol_ratio_s3_s1")
+        if ratio is not None:
+            lines.append(f"S3/S1 realized vol: {ratio:.2f}x")
+        if dm.get("risk_comparable") is False:
+            lines.append("RISK MISMATCH: no superiority claim")
+        elif dm.get("verdict_allowed") and dm.get("risk_comparable") is not True:
+            lines.append("Risk comparability unknown: no superiority claim")
 
     ibk = state.get("ibkr") or {}
     if ibk.get("nav"):

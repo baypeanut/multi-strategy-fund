@@ -1,4 +1,4 @@
-"""S3Engine - discretionary book: briefing -> PM proposal -> hard wrapper.
+"""S3Engine — discretionary book: briefing -> PM proposal -> hard wrapper.
 
 The LLM/PM proposes; the deterministic RiskWrapper disposes. Output is a
 sanitized, limit-compliant target-weight Series plus an audit trail.

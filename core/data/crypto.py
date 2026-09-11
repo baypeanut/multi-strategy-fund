@@ -1,4 +1,4 @@
-"""Crypto data provider (free) - ccxt against a public exchange.
+"""Crypto data provider (free) — ccxt against a public exchange.
 
 Public OHLCV endpoints require no API key. Default exchange is binanceus for
 US accessibility; override via config. Funding-rate reads (for the carry
@@ -32,7 +32,7 @@ class CryptoDataProvider:
         for sym in symbols:
             try:
                 ohlcv = self._exchange.fetch_ohlcv(sym, timeframe=timeframe, limit=limit)
-            except Exception:  # network/symbol issues - skip, don't crash the loop
+            except Exception:  # network/symbol issues — skip, don't crash the loop
                 continue
             if not ohlcv:
                 continue
@@ -52,7 +52,7 @@ class CryptoDataProvider:
             return None
 
     def last_prices(self, symbols: list[str]) -> dict[str, float]:
-        """Light-tick marking prices - one ticker call per symbol (8 names)."""
+        """Light-tick marking prices — one ticker call per symbol (8 names)."""
         out: dict[str, float] = {}
         for sym in symbols:
             px = self.last_price(sym)

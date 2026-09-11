@@ -1,0 +1,52 @@
+{
+  "snapshot_as_of": "2026-09-09T17:44:33.771579+00:00",
+  "local_baseline": "a1a9bf3",
+  "production_baseline": "c2d8d9c",
+  "local_changes_only": true,
+  "original_source_sha256": "c5fe133ed5a2c74953621c2040b917ab4d4926436a49328ebe7c5c09c94d3284",
+  "evidence_sha256": {
+    "data/equity_daily.jsonl": "8295c3b5e44c130785be6c266cecc6362787bcad3b8545c38d9db84acd4381db",
+    "data/fills_history.jsonl": "be44f2528de12ff11fde4a00bc48d6be8c1c7a8567d6ea35a8453c41cf5569b0",
+    "data/state.json": "8089e9395a2f9fa9a30b9fd6aa36e0fa4f2f4a83ec4d456f9ed54ce9c3f275dc",
+    "data/universe/equities.json": "9646a2bd36f00b3fc404815e1d2d814cb6139bee6bb2f80fe4ee5d316ea4cb22",
+    "hist_cache.pkl": "90b2203774eeba19fdb8a52b016dfead2bbc702a814cbc768620df65a7bbf54a",
+    "research/CORRECTIONS.md": "5916775bc95ecdd138c4d4ae375db5dadbf70f4653ea62b17dd908401b563ada",
+    "research/hypotheses.yaml": "d930ac88d4e7217390104b4c54865605654ca42671d3489a08c745a6cd1d2fbe",
+    "research/registry.json": "1d7cb0abf1bd293ad8772ff644dff55e0e8488739f42879e752350603beab917"
+  },
+  "notes": [
+    "Raw evidence is retained under ignored data/quant_audit_20260909, not added to git.",
+    "Cached timing comparison is not N0021 lockbox reproduction.",
+    "No reset, registry re-grade, production patch, order, or cancellation was performed."
+  ],
+  "changed_source_sha256": {
+    "backtest/engine.py": "2637477f0d3ce6a91c27b94bd71ba94d7e2509aeac2af9f12cb2c42652b15b28",
+    "backtest/metrics.py": "d158a6ac659b2d9c2151907622e96891e139bff8de2a39bf59d59745d28436ee",
+    "core/alerts.py": "de52ce2988da3a0a92a84a9d8aaf0b89afcf5caf4202620559084790e3bb0a48",
+    "core/broker/ibkr_broker.py": "fc47908837a931fb530a414e89269e872fe92671433dd3194d80796a6d4aa38f",
+    "core/broker/paper_broker.py": "666daafe061e39b84d3e03dd914e03c8e27d3097890adcd0c860311f8acb8a90",
+    "core/ledger/ledger.py": "d620f99b0bb954e25f6b5e38b4488a3928459c45304736c9bd356ba03de499e5",
+    "dashboard/server.py": "d345d0ff91fc4f2bec87bd7539a5aae714a031a2227bab7e6571d0ebf3eaf70c",
+    "research/h1_event_study.py": "741babe497893ed367f2e656378771680f7776973d6a48258f21d1dc4ef0e37d",
+    "research/harness.py": "ce456d21784493c642b5b77d078b6fc9adf415f474fed20b1f973007c44e4376",
+    "research/primitives.py": "462f5e9ce1b5c0d7a507ca10029559d8c6d2fbb7fdf39d872a8dc1e87edd3d9c",
+    "runtime/live.py": "844e8009e405209724a98bc0ec8089055b47d7b8eec257e6df881697ea9ca562",
+    "tests/test_mirror_stacking.py": "25cf857907fe29a9a605e468d0723e0ea232c2dbca0c028fe9f57dfbf8fe12e3",
+    "tests/test_primitives_perf.py": "f4ef7de54046df9ac30d44df622740557523dd1da120007c7b5c68b4d74e1fde",
+    "tests/test_quant_audit.py": "548d09d59e75dac75e20af3dd48010087b6b33ea8c9dc9fd650b90342387a554",
+    "scripts/quant_audit_snapshot.py": "1dd8357841d2ce689997541b3b685e5f0c70909fb78188a41cffc60472d2431a",
+    "scripts/quant_audit_event_timing.py": "e336326600235319cf933e52c67b71f5ffd5bb598dd103a153162e558ac99312"
+  },
+  "offline_reproduction_verified": true,
+  "verification": {
+    "passed": 636,
+    "skipped": 1,
+    "warnings": 1,
+    "targeted_mutations_caught": 8,
+    "targeted_mutations_total": 8,
+    "javascript_syntax_check": "passed",
+    "git_diff_check": "passed",
+    "execution": "isolated credential-free source copy",
+    "production_deployed": false
+  }
+}

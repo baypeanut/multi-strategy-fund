@@ -4,7 +4,7 @@ expectation it was confirmed on (director wish, twice repeated).
 What these tests pin: the arithmetic is hand-checkable, only CONFIRMED
 families are reported, the ledger is preferred over state.json with a working
 fallback, and missing/corrupt data is treated as DATA rather than as an error
-- that last one is what lets the section render in the proposal sandbox, which
+— that last one is what lets the section render in the proposal sandbox, which
 strips data/ entirely.
 """
 import json
@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from research import director
 
-# the shape of N0021 - the row forward_oos must pull the expectation from,
+# the shape of N0021 — the row forward_oos must pull the expectation from,
 # rather than carrying hardcoded numbers of its own
 CONFIRMED_ROW = {
     "id": "N0021", "ts": "2026-07-25T00:00:00+00:00",
@@ -199,10 +199,15 @@ def test_forward_books_maps_the_confirmed_family_to_s5():
 
 
 def test_the_director_context_carries_it():
-    """The director's context had no book performance at all - this is the
+    """The director's context had no book performance at all — this is the
     whole point of the wish. Renders on the real repo AND in the sandbox."""
     blob = director._context()
-    assert "=== FORWARD OOS (confirmed families - diagnostic only) ===" in blob
+    assert "=== FORWARD OOS (confirmed families — diagnostic only) ===" in blob
     assert "FORWARD OOS === unavailable" not in blob
 
 
+def test_the_engineer_lane_can_see_it():
+    from research import engineer
+    blob = engineer._research_ledger()
+    assert "FORWARD OOS" in blob
+    assert "FORWARD OOS === unavailable" not in blob

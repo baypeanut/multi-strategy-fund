@@ -1,4 +1,4 @@
-"""Ingestion - SEC EDGAR filings (free, no API key).
+"""Ingestion — SEC EDGAR filings (free, no API key).
 
 EDGAR exposes a JSON submissions API. We map tickers -> CIK, then pull recent
 filings (8-K, 10-Q, etc.). SEC requires a descriptive User-Agent. This is the

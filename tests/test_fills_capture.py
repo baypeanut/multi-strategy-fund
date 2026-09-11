@@ -2,7 +2,7 @@
 
 Observed 2026-07-27: the broker saw 4019 executions, the ledger captured 669.
 Two caps, both silent: the broker reported only `fills[-300:]` per read, and
-the runtime deduped against the 300-row display ring - so a burst larger than
+the runtime deduped against the 300-row display ring — so a burst larger than
 the ring lost everything in between, permanently (IBKR replays only today).
 These tests pin both halves: the broker reports uncapped, and dedupe is
 ledger-scoped so reporting the full day cannot produce duplicates.
@@ -57,7 +57,7 @@ def test_fills_evicted_from_the_ring_are_not_re_appended(rt):
     rt._merge_ibkr_state({"mode": "refresh", "fills_today": [_fill(i) for i in range(400)],
                           "n_fills_today": 400})
     assert len(rt.fills_ledger_path.read_text().splitlines()) == 400
-    # fill 0 is long gone from the 300-row ring - re-report it
+    # fill 0 is long gone from the 300-row ring — re-report it
     rt._merge_ibkr_state({"mode": "refresh", "fills_today": [_fill(0)],
                           "n_fills_today": 1})
     assert len(rt.fills_ledger_path.read_text().splitlines()) == 400

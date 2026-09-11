@@ -11,11 +11,11 @@ from core.broker.ibkr_broker import (MirrorAborted, assert_paper_account,
 
 
 def test_paper_account_guard():
-    assert_paper_account("DU0000000", "DU0000000")           # ok
+    assert_paper_account("DU000000", "DU000000")           # ok
     with pytest.raises(MirrorAborted):
         assert_paper_account("U1234567", "U1234567")         # live acct: never
     with pytest.raises(MirrorAborted):
-        assert_paper_account("DU0000000", "DUQ999999")       # wrong account
+        assert_paper_account("DU000000", "DUQ999999")       # wrong account
 
 
 def test_symbol_mapping_roundtrip():

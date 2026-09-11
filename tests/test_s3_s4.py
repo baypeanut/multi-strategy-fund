@@ -99,7 +99,7 @@ def test_heuristic_pm_within_caps_and_regime():
     full = pm.propose(briefing_fixture(1.0))
     half = pm.propose(briefing_fixture(0.3))
     assert all(abs(v) <= 0.05 + 1e-12 for v in full.values())
-    # regime scaling is the runtime's job (target-vol level), NOT the PM's
+    # regime scaling is the runtime's job (target-vol level), NOT the PM's —
     # the PM must produce the same book regardless of risk_scale
     assert full == half
     assert full["AAPL"] > 0 and full["MSFT"] < 0

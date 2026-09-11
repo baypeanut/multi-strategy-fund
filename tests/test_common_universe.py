@@ -73,7 +73,7 @@ def test_paired_common_is_diagnostic_only(rt):
     _seed_daily(rt, "s3", [v * (1 + 0.0002 * i) for i, v in enumerate(base)])
     out = rt._paired_common()
     assert out["diagnostic_only"] is True
-    # the armor check: this readout can NEVER carry a verdict - the
+    # the armor check: this readout can NEVER carry a verdict — the
     # pre-registered decision rule stays the full-book test
     assert "verdict_allowed" not in out
     assert out["n"] == 29        # 30 business-day closes -> 29 diffs

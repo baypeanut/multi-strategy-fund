@@ -36,7 +36,7 @@ def test_impact_charged_with_stored_inputs(rt):
     cost = rt._turnover_cost(pw, new_w, 3_000_000.0)
     bd = _eq_model().estimate(0.05 * 3_000_000.0, adv=200e6, daily_vol=0.015)
     assert cost == pytest.approx(0.05 * (bd.slippage + bd.commission), rel=1e-9)
-    # and it strictly exceeds the old spread+commission-only charge - impact
+    # and it strictly exceeds the old spread+commission-only charge — impact
     # is no longer free on the live surface
     spread_comm = 0.05 * (CONFIG.costs.equities["half_spread_bps"]
                           + CONFIG.costs.equities["commission_bps"]) * 1e-4

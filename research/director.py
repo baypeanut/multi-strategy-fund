@@ -1,7 +1,7 @@
 """Research Director (Claude Fable 5) + adversarial Referee (Opus 4.8).
 
 The director THINKS; the harness JUDGES. The director reads the full research
-history and designs tomorrow's most informative experiments - inside the
+history and designs tomorrow's most informative experiments — inside the
 harness grammar, with no ability to pick dates, touch bars, write the ledger,
 or reach live config. Its specs are pre-registered at proposal time, so by
 the time they run they are immutable.
@@ -25,12 +25,16 @@ from research.harness import (ALLOWED_PARAMS, EXPLORE, HYPOTHESES, LOCKBOX,
                               save_registry, validate_spec)
 
 MEMOS = Path(__file__).resolve().parent / "NIGHTLY_MEMOS.md"
+# E49: the graded ledger is mechanically unwritable forever (correct), so a
+# row whose LABEL is wrong has no in-ledger correction channel — corrections
+# to what rows MEAN live here and are tailed into the director's context
+CORRECTIONS = Path(__file__).resolve().parent / "CORRECTIONS.md"
 
 _DIRECTOR_SYSTEM = f"""You are the research director of a systematic fund.
 You design the next experiments; a deterministic harness runs them and judges
-them against frozen bars - you cannot grade yourself, choose data windows, or
+them against frozen bars — you cannot grade yourself, choose data windows, or
 deploy anything. Exploration data window is {EXPLORE[0]}..today; a lockbox
-({LOCKBOX[0]}..{LOCKBOX[1]}) exists that you can never see - candidate
+({LOCKBOX[0]}..{LOCKBOX[1]}) exists that you can never see — candidate
 families get ONE confirmation shot there, and a failed shot burns the family
 permanently. Every trial you add raises your own multiple-testing bar
 (within-family Bonferroni + global DSR deflation), so propose FEWER, more
@@ -42,11 +46,11 @@ informative experiments, not sweeps.
 Experiment grammar (the ONLY thing you may emit):
 - signal_backtest: w_momentum/w_reversal/w_low_vol (0-2), rebalance_days
   (5|10|21|42), market_neutral (bool), n_names (60-500), period (2y|3y),
-  ic_weighting (bool - rolling trailing-IC signal weights, negative-IC
+  ic_weighting (bool — rolling trailing-IC signal weights, negative-IC
   signals dropped; an adaptive-combining mechanism distinct from static
   blends, so it is not a re-roll of a static blend)
 - event_study / event_study_costnet: n_names (60-500),
-  item ('2.02'|'5.02'|'1.01'|null), item_not (complement filter - EXCLUDE an
+  item ('2.02'|'5.02'|'1.01'|null), item_not (complement filter — EXCLUDE an
   item class, e.g. item_not='2.02' runs all 8-Ks EXCEPT earnings items in one
   pre-registered trial; null), drift_col ('car2_10'|'car2_20')
 - event_portfolio: n_names, item, item_not, entry_lag (1-5), exit_lag (5-21)
@@ -56,7 +60,7 @@ prefer experiments that discriminate between mechanisms; respect that a
 family at N trials needs p*N < 0.05.
 
 WHEN YOUR BEST FAMILY IS CLOSED, OPEN A NEW ONE. A family whose status is
-`confirmed` or `burned` is closed to further trials FOREVER - the harness
+`confirmed` or `burned` is closed to further trials FOREVER — the harness
 rejects every spec you aim at it, and that rejection is the armor working, not
 an obstacle to route around. This has deadlocked you before: four consecutive
 proposals into the confirmed `8k-drift` family were rejected and the queue sat
@@ -72,7 +76,7 @@ a saturated family's Bonferroni penalty. So:
     is at 11 trials because every static-blend perturbation re-rolls the same
     dice; adding a twelfth makes the bar p<0.0045 for a question you have
     already asked eleven ways.
-  - DO open a new family when the mechanism is genuinely different - different
+  - DO open a new family when the mechanism is genuinely different — different
     signal construction, different information source, different holding
     logic. `ic_weighting` (adaptive combining: weights follow realized trailing
     IC, negative-IC signals dropped) is exactly such a mechanism and is
@@ -80,16 +84,16 @@ a saturated family's Bonferroni penalty. So:
     it deserves its own family name rather than price-factors' penalty.
   - If you genuinely believe no informative experiment exists tonight, emit
     zero specs and say why. An honest empty night is fine. Four rejected specs
-    and an empty queue is not - that is a deadlock, and if you find yourself
+    and an empty queue is not — that is a deadlock, and if you find yourself
     there, say so plainly in the memo so a human can widen the grammar.
 
 If the grammar cannot express an experiment you believe is the most
-informative next step, do NOT contort a weaker spec - put the idea in
+informative next step, do NOT contort a weaker spec — put the idea in
 engineering_wishes (plain language, what primitive/data you need and why).
-The owner reads these and decides whether to build the primitive, so a
-well-argued wish can grow your grammar. Say so explicitly when a wish needs
-a budget or capital decision: buying data, spending the lockbox shot,
-anything touching live capital."""
+A staff-engineer lane reads these and may build the primitive the same night
+(it applies its own work), so a well-argued wish can grow your grammar by
+tomorrow. Wishes that need a human decision — buying data, spending the
+lockbox shot, anything touching live capital — say so explicitly."""
 
 _DIRECTOR_SCHEMA = {
     "type": "object",
@@ -107,7 +111,7 @@ _DIRECTOR_SCHEMA = {
                     # E45: a JSON STRING, not a typed object. Enumerating all
                     # 13 params inline made the schema 27 nodes, and the API
                     # rejected the whole request with 400 "Schema is too
-                    # complex" - silently, from 2026-07-27 (when P0013 added
+                    # complex" — silently, from 2026-07-27 (when P0013 added
                     # `ic_weighting`) until 2026-07-30. Nothing is lost by
                     # loosening it: `validate_spec` in the harness is the
                     # authoritative gate and rejects unknown or illegal params
@@ -148,9 +152,9 @@ def research_liveness() -> dict:
     The fund's whole purpose is finding edge through the armored harness, and
     it silently produced NOTHING for thirteen days (last result 2026-07-17)
     while four consecutive director specs were rejected into a confirmed
-    family and the queue sat empty. Nothing measured it, so nobody saw it
-    the same shape as earlier silent failures. This makes the stall a number,
-    surfaced to the director and to the daily digest.
+    family and the queue sat empty. Nothing measured it, so nobody saw it —
+    the same shape as E36/E37. This makes the stall a number, surfaced to the
+    director, the engineer lane and the daily digest.
     """
     from datetime import date
 
@@ -158,7 +162,7 @@ def research_liveness() -> dict:
 
     out: dict = {"days_since_last_experiment": None, "last_experiment": None,
                  "queue_pending": 0, "open_families": [], "closed_families": [],
-                 "recent_rejections": []}
+                 "recent_rejections": [], "recent_errors": []}
     try:
         rows = [json.loads(l) for l in RESULTS.read_text().splitlines() if l.strip()]
     except (OSError, json.JSONDecodeError):
@@ -174,6 +178,18 @@ def research_liveness() -> dict:
             out["days_since_last_experiment"] = (date.today() - d).days
         except ValueError:
             pass
+        # E59 — an ERROR verdict must carry its cause: without it a failed run
+        # renders identically to an empty one, and N0026 sat verdict=ERROR for
+        # three nights while its exception string was on disk (the E45 rule)
+        if last.get("error"):
+            out["last_experiment"]["error"] = str(last["error"])[:300]
+        # bounded on purpose — this dict is embedded in two model contexts and
+        # the nightly JSON digest: scan 15, report 3, truncate at 300 chars
+        out["recent_errors"] = [
+            {"id": r.get("id"), "name": (r.get("spec") or {}).get("name"),
+             "error": str(r.get("error"))[:300]}
+            for r in rows[-15:]
+            if r.get("verdict") == "ERROR" and r.get("error")][-3:]
 
     reg = load_registry()
     for name, fam in (reg.get("families") or {}).items():
@@ -185,7 +201,7 @@ def research_liveness() -> dict:
     except (OSError, yaml.YAMLError):
         # deliberately NOT a bare `except Exception`: that swallowed a
         # NameError here during development and silently reported an empty
-        # queue - a liveness probe that lies is worse than none.
+        # queue — a liveness probe that lies is worse than none.
         queue = []
     out["queue_pending"] = sum(1 for h in queue
                                if h.get("status", "pending") == "pending")
@@ -199,7 +215,7 @@ def research_liveness() -> dict:
         out["note"] = ("No experiment has run in "
                        f"{out['days_since_last_experiment']} days and the queue "
                        "is empty. If your specs keep being rejected for the same "
-                       "reason, that reason is the finding - say so.")
+                       "reason, that reason is the finding — say so.")
     return out
 
 
@@ -216,14 +232,14 @@ def forward_oos(state_path=None, equity_ledger_path=None) -> dict:
 
     `8k-drift` is confirmed and therefore closed to trials FOREVER, so S5's
     forward paper record is the only evidence stream left on the fund's single
-    confirmed edge - and nothing compared that record to the lockbox
+    confirmed edge — and nothing compared that record to the lockbox
     expectation it was confirmed on, so neither the director (whose context
-    carries no book performance at all) nor the daily digest (which sees raw
+    carries no book performance at all) nor the engineer lane (which sees raw
     equity) could say whether the edge is accruing or decaying.
 
     Diagnostic ONLY: no decision rule reads this, and no read is meaningful
     before ~60 forward days. Strictly read-only, and a missing data file is a
-    DATA condition rather than an error - the proposal sandbox strips data/
+    DATA condition rather than an error — the proposal sandbox strips data/
     entirely, so a well-formed dict has to come back there too.
     """
     import pandas as pd
@@ -311,7 +327,7 @@ def forward_oos(state_path=None, equity_ledger_path=None) -> dict:
         book = FORWARD_BOOKS.get(name)
         entry: dict = {"family": name, "book": book, "n_days": 0}
         if book is None:
-            entry["note"] = ("no forward book mapped - add one to FORWARD_BOOKS "
+            entry["note"] = ("no forward book mapped — add one to FORWARD_BOOKS "
                              "when this family's sleeve goes live")
         else:
             closes = _ledger_closes(equity_ledger_path, book)
@@ -347,7 +363,7 @@ def forward_oos(state_path=None, equity_ledger_path=None) -> dict:
         out.append(entry)
 
     return {"diagnostic_only": True,
-            "note": ("accrual instrument - the family is closed to trials; NO "
+            "note": ("accrual instrument — the family is closed to trials; NO "
                      "decision rule reads this, and no read is meaningful "
                      "before ~60 forward days"),
             "families": out}
@@ -359,11 +375,31 @@ def _context() -> str:
     if log.exists():
         parts.append("=== RESEARCH_LOG (tail) ===\n" + "\n".join(
             log.read_text().splitlines()[-260:]))
+    if CORRECTIONS.exists():
+        # E49: absent file = no corrections on record, a normal state; a read
+        # that BLOWS UP is named, not swallowed (E45 rule) — a failure must be
+        # distinguishable from a decision not to act
+        try:
+            parts.append("=== RECORD CORRECTIONS (append-only; the results "
+                         "ledger is mechanically unwritable, so corrections to "
+                         "what its rows MEAN live here) ===\n" + "\n".join(
+                             CORRECTIONS.read_text().splitlines()[-150:]))
+        except Exception as exc:
+            parts.append(f"=== RECORD CORRECTIONS === unavailable: "
+                         f"{type(exc).__name__}: {exc}")
     if RESULTS.exists():
         rows = [json.loads(l) for l in RESULTS.read_text().splitlines()[-25:]]
-        slim = [{"id": r["id"], "name": r["spec"].get("name"),
-                 "family": r.get("family"), "phase": r.get("phase"),
-                 "verdict": r["verdict"], "metrics": r["metrics"]} for r in rows]
+        # E59 — an ERROR row must carry its cause; N0026's exception string sat
+        # on disk in this very file for three nights while both context builders
+        # slimmed it out (the E45 rule, one layer down)
+        slim = []
+        for r in rows:
+            row = {"id": r["id"], "name": r["spec"].get("name"),
+                   "family": r.get("family"), "phase": r.get("phase"),
+                   "verdict": r["verdict"], "metrics": r["metrics"]}
+            if r.get("error"):
+                row["error"] = str(r["error"])[:300]
+            slim.append(row)
         parts.append("=== RECENT RESULTS ===\n" + json.dumps(slim, indent=1))
     reg = load_registry()
     parts.append("=== FAMILIES ===\n" + json.dumps(reg["families"], indent=1))
@@ -371,10 +407,10 @@ def _context() -> str:
     parts.append("=== RESEARCH LIVENESS ===\n" + json.dumps(research_liveness(),
                                                             indent=1, default=str))
     try:
-        parts.append("=== FORWARD OOS (confirmed families - diagnostic only) ===\n"
+        parts.append("=== FORWARD OOS (confirmed families — diagnostic only) ===\n"
                      + json.dumps(forward_oos(), indent=1, default=str))
     except Exception as exc:
-        # E45: a failure must be distinguishable from a decision not to act
+        # E45: a failure must be distinguishable from a decision not to act —
         # a silently missing section reads as "nothing to report"
         parts.append(f"=== FORWARD OOS === unavailable: "
                      f"{type(exc).__name__}: {exc}")
@@ -384,8 +420,15 @@ def _context() -> str:
 def run_director(queue: list[dict]) -> dict | None:
     """One Fable design session -> memo + 0..3 validated, PRE-REGISTERED specs."""
     key = get_key("ANTHROPIC_API_KEY")
-    if not key or not _budget_ok("director", 2):
-        return None
+    if not key:
+        return None                       # no key: a decision not to act
+    # E57b: budget exhaustion used to share that `return None`, so a capped
+    # director printed nothing at all - the nightly digest simply had no
+    # director line and the run looked like the director had chosen silence.
+    # Same residue E45 left in the error path, and the same rule applies: a
+    # limit doing its job should say so. The engineer already names its cap.
+    if not _budget_ok("director", 2):
+        return {"skipped": "daily design budget spent (2/day)"}
     try:
         import anthropic
         client = anthropic.Anthropic(api_key=key, timeout=600)
@@ -440,8 +483,8 @@ def run_director(queue: list[dict]) -> dict | None:
         memo = out.get("memo", "")
         wishes = [w for w in out.get("engineering_wishes", []) if w.strip()]
         if wishes:
-            # queued for the owner: wishes become the shortlist of new
-            # primitives that would grow the experiment grammar
+            # routed to the staff-engineer lane (E22): wishes become context
+            # for code proposals that can grow the experiment grammar
             wf = Path(__file__).resolve().parent / "WISHES.md"
             with open(wf, "a") as fh:
                 fh.write(f"\n## {datetime.now(timezone.utc).date().isoformat()}\n"
@@ -457,7 +500,7 @@ def run_director(queue: list[dict]) -> dict | None:
                 "model": resp.model}
     except Exception as exc:
         # E45: this was `return None`, and a 400 "Schema is too complex" hid
-        # behind it for three days - the research engine was completely dead
+        # behind it for three days — the research engine was completely dead
         # and the nightly digest said nothing, because None is also what a
         # missing key or an exhausted budget returns. A failure must be
         # distinguishable from a decision not to act.
@@ -465,8 +508,8 @@ def run_director(queue: list[dict]) -> dict | None:
 
 
 def run_referee(entry: dict) -> str | None:
-    """Adversarial Opus memo on a PASS/CONFIRMED result. Cannot block
-    the judge is code - but its objections travel with the result."""
+    """Adversarial Opus memo on a PASS/CONFIRMED result. Cannot block —
+    the judge is code — but its objections travel with the result."""
     key = get_key("ANTHROPIC_API_KEY")
     if not key or not _budget_ok("referee", 3):
         return None
@@ -474,7 +517,7 @@ def run_referee(entry: dict) -> str | None:
         import anthropic
         client = anthropic.Anthropic(api_key=key, timeout=180)
         resp = client.messages.create(
-            # E34: opus-5 - same price as 4.8 ($5/$25), stronger judgment; the
+            # E34: opus-5 — same price as 4.8 ($5/$25), stronger judgment; the
             # referee is not a live book, so no pre-registration clock applies
             model="claude-opus-5",
             max_tokens=2000,

@@ -4,7 +4,7 @@ The fund's grading data (per-book equity curves, benchmark, common-universe
 diagnostic indices) lives only inside state.json ring buffers capped at 3000
 marks. update_equity_ledger() lifts every COMPLETED day's close into
 data/equity_daily.jsonl before the cap evicts it. Everything here runs offline
-under tmp_path with an injected clock - the real data/ tree is never touched.
+under tmp_path with an injected clock — the real data/ tree is never touched.
 """
 from __future__ import annotations
 

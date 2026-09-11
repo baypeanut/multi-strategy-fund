@@ -1,4 +1,4 @@
-"""Structured briefing - the ONLY information the discretionary PM may use.
+"""Structured briefing — the ONLY information the discretionary PM may use.
 
 The PM (LLM or heuristic) sees this dict and nothing else. The wrapper later
 enforces that proposals reference only symbols present here (citation check).
