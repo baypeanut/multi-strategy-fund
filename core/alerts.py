@@ -94,6 +94,8 @@ def format_daily_digest(state: dict[str, Any], now: datetime) -> str:
             lines.append("RISK MISMATCH: no superiority claim")
         elif dm.get("verdict_allowed") and dm.get("risk_comparable") is not True:
             lines.append("Risk comparability unknown: no superiority claim")
+        if dm.get("measurement_comparable") is False:
+            lines.append("VERSION CHANGE: mixed history is diagnostic only; no superiority claim")
 
     ibk = state.get("ibkr") or {}
     if ibk.get("nav"):

@@ -1,0 +1,94 @@
+{
+  "source_tick": 2140,
+  "source_as_of": "2026-09-16T01:57:20.131434+00:00",
+  "scenario": "Static last marks, existing targets, no signal/model/broker calls; estimated transition only",
+  "books": {
+    "s1": {
+      "nav_before": 2799027.500207409,
+      "nav_after": 2798629.899726871,
+      "before_breaches": [
+        "ADA/USDT",
+        "AVAX/USDT",
+        "LINK/USDT"
+      ],
+      "after_breaches": [],
+      "crypto_shorts_after": [],
+      "gross_before": 0.9999999999999999,
+      "gross_after": 0.9641538240127752,
+      "costs": {
+        "transaction_cost_usd": 397.6004805378937,
+        "borrow_cost_usd": 0.0,
+        "turnover": 0.035983133563994345
+      },
+      "cash_reconciliation_residual": -6.048139766789973e-11,
+      "unpriced_holdings": []
+    },
+    "s2": {
+      "nav_before": 3082356.1433126917,
+      "nav_after": 3082356.1433126917,
+      "before_breaches": [],
+      "after_breaches": [],
+      "crypto_shorts_after": [],
+      "gross_before": 1.0,
+      "gross_after": 1.0,
+      "costs": {
+        "transaction_cost_usd": 0.0,
+        "borrow_cost_usd": 0.0,
+        "turnover": 0.0
+      },
+      "cash_reconciliation_residual": -5.275069270282984e-11,
+      "unpriced_holdings": []
+    },
+    "s3": {
+      "nav_before": 2872606.8988384525,
+      "nav_after": 2872606.8988384525,
+      "before_breaches": [],
+      "after_breaches": [],
+      "crypto_shorts_after": [],
+      "gross_before": 0.604790549713344,
+      "gross_after": 0.604790549713344,
+      "costs": {
+        "transaction_cost_usd": 0.0,
+        "borrow_cost_usd": 0.0,
+        "turnover": 0.0
+      },
+      "cash_reconciliation_residual": -2.4374458007514477e-10,
+      "unpriced_holdings": []
+    },
+    "s4": {
+      "nav_before": 2953457.5984109407,
+      "nav_after": 2953326.939424142,
+      "before_breaches": [
+        "AVAX/USDT",
+        "LINK/USDT"
+      ],
+      "after_breaches": [],
+      "crypto_shorts_after": [],
+      "gross_before": 0.9499776889965021,
+      "gross_after": 0.9349646357082022,
+      "costs": {
+        "transaction_cost_usd": 130.65898679878794,
+        "borrow_cost_usd": 0.0,
+        "turnover": 0.01505441549782012
+      },
+      "cash_reconciliation_residual": 4.3655745685100555e-11,
+      "unpriced_holdings": []
+    },
+    "s5": {
+      "nav_before": 2832837.0295097562,
+      "nav_after": 2832837.0295097562,
+      "before_breaches": [],
+      "after_breaches": [],
+      "crypto_shorts_after": [],
+      "gross_before": 1.0,
+      "gross_after": 0.9999999999999999,
+      "costs": {
+        "transaction_cost_usd": 0.0,
+        "borrow_cost_usd": 0.0,
+        "turnover": 0.0
+      },
+      "cash_reconciliation_residual": 0.0,
+      "unpriced_holdings": []
+    }
+  }
+}

@@ -524,3 +524,19 @@ zero submitted and no API errors. There were no open orders at the cutover.
 First completed tick: 2022 -> 2023, polygon/polygon basis, no halt, broker
 refresh successful. Both services active; paid research timer still disabled.
 Full verification and remaining work: DEPLOYMENT_2026-09-11.md.
+
+### 2026-09-16 — Self-financing paper books and feasible final portfolios
+
+Owner-directed engineering release, not an alpha trial. Correct held-quantity
+marking, post-cost NAV settlement, cash-funded borrow, final ADV/spot limits,
+current S3 holdings/NAV and stable briefing membership. Persist the S4 drawdown
+reduction so holding through the same drawdown does not halve exposure hourly.
+Retain unpriced holdings; do not book fictitious exits or fund additions with
+them. Mark the accounting boundary and prevent mixed-version superiority claims.
+
+The prior S3 comparison is interrupted/inconclusive (DECISIONS §8); no reset,
+regrading or lockbox replay. Static-price replay of tick 2140 removes three S1
+and two S4 liquidity breaches. Estimated transition transaction costs: S1
+$397.60, S4 $130.66; other books $0 in that scenario. These are modeled costs,
+not a backtest return, broker fill result, or profit forecast. Details and
+verification: IMPROVEMENTS_2026-09-16.md.

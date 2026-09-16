@@ -248,3 +248,29 @@ and measurement platform - and stop paying for alpha it is not positioned to
 find. Both are defensible. What is NOT efficient is the status quo: paying to run
 the worst-ranked blend live for 57 more days to confirm what two free screens
 already showed.
+
+## 8. 2026-09-16: repair accounting; close the interrupted comparison as inconclusive
+
+Owner authorization: make the quant decisions, improve the paper bot and push.
+The live shadow books silently held constant weights between decisions, final
+volatility scaling bypassed liquidity bounds, spot crypto could be short, and
+S3 did not receive its own positions. Keeping those defects for another 60-day
+wait would not produce usable evidence.
+
+Deploy `self_financing_v2`: quantities drift with marks, cash pays actual modeled
+trade/borrow costs, final positions obey the existing capacity/spot limits,
+and S3 receives current marked positions/NAV with deterministic name selection.
+No alpha parameter, model, volatility target or event-study result is retuned.
+
+This changes accounting and portfolio decisions. The old registered comparison
+is **interrupted/inconclusive, with no demonstrated S3 superiority**; it is not
+restarted or extended until a favorable result appears. `clock_start` and the
+two historical reset records remain intact. A dated measurement boundary stores
+NAV baselines and disables superiority claims on the mixed-version history.
+The continued paper run is engineering/performance observation, not a newly
+registered confirmation test. A future scientific comparison needs its own
+prospectively specified design; this release does not create one.
+
+The existing three-resets-total policy is not relaxed. The original clock is
+retained as history, not displayed as a promise of an interpretable day-60 test.
+The engineer lane and its timer remain disabled.

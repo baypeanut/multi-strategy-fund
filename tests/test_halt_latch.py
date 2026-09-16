@@ -84,8 +84,8 @@ def test_borrow_uses_252_day_basis(runtime, monkeypatch):
 
     runtime.tick()
     # price move AAPL 100->101: short loses 1%; plus borrow 50bps/252
-    # equity' = eq0 * (1 - 0.01) * (1 - 50e-4/252)
-    expected = eq0 * 0.99 * (1.0 - 50e-4 / 252.0)
+    # Borrow is charged on the current $1.01m short, paid from cash.
+    expected = eq0 * 0.99 - eq0 * 1.01 * 50e-4 / 252.0
     assert abs(runtime.state["systems"]["s1"]["equity"] - expected) < 0.02
 
 

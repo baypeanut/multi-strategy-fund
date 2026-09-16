@@ -75,7 +75,9 @@ def test_gate_holds_weights_without_engines(rt, monkeypatch):
     out = rt.tick()
     assert out["rebalanced"] is False and out["no_trade"] is False
     assert called == {"engine": 0, "heavy": 0}            # nothing heavy ran
-    assert rt.state["systems"]["s1"]["weights"] == prev["s1"]   # held exactly
+    book = rt.state["systems"]["s1"]
+    assert abs(book["holdings_usd"]["AAA"] / 101 - rt.nav0 * .03 / 100) < 1e-9
+    assert book["last_costs"]["turnover"] == 0  # held quantities, drifting weights
     # equity marked to market despite holding: AAA +1% * 3% weight
     assert rt.state["systems"]["s1"]["equity"] != rt.nav0
 

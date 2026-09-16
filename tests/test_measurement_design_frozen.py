@@ -147,14 +147,40 @@ def test_every_book_targets_the_same_vol():
     assert n >= 4, f"expected every book sized off the shared target, saw {n}"
 
 
-def test_s3_still_sees_the_regime_it_no_longer_obeys():
-    """Removing the throttle must not blind the PM. The regime goes into the
-    briefing, so the LLM can still act on it by choosing positions, which is
-    the capability under test."""
-    src = _sizing_source()
-    assert "build_briefing(" in src and ", reg)" in src, (
-        "the regime stopped reaching the briefing; S3 is now blind to it "
-        "rather than merely un-throttled by it")
+def test_s3_still_sees_the_regime_it_no_longer_obeys(tmp_path, monkeypatch):
+    """Exercise real wiring: PM sees current positions and regime after marking."""
+    import numpy as np
+    import pandas as pd
+    from datetime import datetime, timezone
+    from core.config import CONFIG
+    rt = live.LiveRuntime(str(tmp_path / "state.json"))
+    idx = pd.bdate_range("2025-01-01", periods=300)
+    eq = {}
+    for i, sym in enumerate(["AAA", "BBB", "CCC", "SPY"]):
+        close = 100 * np.exp(np.random.default_rng(i).normal(0, .01, 300).cumsum())
+        eq[sym] = pd.DataFrame({"close": close, "open": close,
+                               "high": close, "low": close, "volume": 1000.}, index=idx)
+    rt._decision_books = {k: {"equity": 900_000., "weights": {}} for k in live.SYSTEMS}
+    rt._decision_books["s3"]["weights"] = {"AAA": .02, "BBB": -.01}
+    monkeypatch.setattr(live, "has_key", lambda name: False)
+    monkeypatch.setitem(CONFIG.llm, "enabled", False)
+    seen = {}
+    def propose(self, briefing):
+        seen.update(briefing)
+        return {"AAA": .05, "BBB": -.05}
+    monkeypatch.setattr(live.HeuristicPM, "propose", propose)
+    # A scaler trying to enlarge the proposal cannot bypass final liquidity.
+    monkeypatch.setattr(live, "scale_to_target_vol", lambda w, *a, **k: w * 10)
+    weights, reg, _, _ = rt._run_systems(eq, {}, pd.Series(20., index=idx),
+                                        datetime.now(timezone.utc))
+    assert seen["regime"] == reg
+    names = {row["symbol"]: row for row in seen["names"]}
+    assert names["AAA"]["current_weight"] == .02
+    assert names["BBB"]["current_weight"] == -.01
+    assert seen["risk_budget_used"] == .03
+    adv = rt.state["cost_inputs"]["AAA"][0]
+    assert abs(weights["s3"]["AAA"] * 900_000. - .1 * adv) < .01
+    assert weights["s3"].abs().sum() <= CONFIG.risk.max_gross
 
 
 def test_the_governor_assesses_the_deployed_book_only():

@@ -48,7 +48,11 @@ class RiskWrapper:
         clean: dict[str, float] = {}
         for sym, w in proposal.items():
             # 1. sanity
-            if w is None or (isinstance(w, float) and (math.isnan(w) or math.isinf(w))):
+            try:
+                w = float(w)
+            except (TypeError, ValueError, OverflowError):
+                w = float("nan")
+            if not math.isfinite(w):
                 violations.append(f"drop {sym}: non-finite weight")
                 continue
             # 2. citation check — symbol must be in the briefing universe

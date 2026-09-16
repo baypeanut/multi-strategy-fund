@@ -65,8 +65,14 @@ def test_degraded_light_causes_no_trade(runtime, monkeypatch):
 
     out = runtime.tick()
     assert out["no_trade"] is True and out["rebalanced"] is False
-    # weights preserved exactly -> zero turnover
-    assert runtime.state["systems"]["s1"]["weights"] == {"AAPL": 0.03, "MSFT": -0.02}
+    # quantities preserved exactly -> zero turnover
+    book = runtime.state["systems"]["s1"]
+    assert book["last_costs"]["turnover"] == 0
+    for sym, old_w in {"AAPL": .03, "MSFT": -.02}.items():
+        old_price = 100. if sym == "AAPL" else 200.
+        latest_price = runtime.state["prev_prices"][sym]
+        assert book["holdings_usd"][sym] / latest_price == pytest.approx(
+            runtime.nav0 * old_w / old_price)
     assert runtime.state["data_incidents"][-1]["kind"] == "NO-TRADE tick"
 
 
@@ -105,7 +111,13 @@ def test_heavy_degradation_blocks_rebalance(runtime, monkeypatch):
                         lambda self, *a: (_ for _ in ()).throw(AssertionError))
     out = runtime.tick()
     assert out["no_trade"] is True and out["rebalanced"] is False
-    assert runtime.state["systems"]["s1"]["weights"] == {"AAPL": 0.03, "MSFT": -0.02}
+    book = runtime.state["systems"]["s1"]
+    assert book["last_costs"]["turnover"] == 0
+    for sym, old_w in {"AAPL": .03, "MSFT": -.02}.items():
+        old_price = 100. if sym == "AAPL" else 200.
+        latest_price = runtime.state["prev_prices"][sym]
+        assert book["holdings_usd"][sym] / latest_price == pytest.approx(
+            runtime.nav0 * old_w / old_price)
 
 
 # --- cache-served NO-TRADE telemetry (2026-07-31 15:52/16:53/17:55/18:57) ----
@@ -176,8 +188,14 @@ def test_cache_served_incident_names_the_fresh_failure(runtime, monkeypatch):
 
     out = runtime.tick()
     assert out["no_trade"] is True and out["rebalanced"] is False
-    # the guard still holds the book exactly -> zero turnover
-    assert runtime.state["systems"]["s1"]["weights"] == {"AAPL": 0.03, "MSFT": -0.02}
+    # the guard holds quantities exactly -> zero turnover
+    book = runtime.state["systems"]["s1"]
+    assert book["last_costs"]["turnover"] == 0
+    for sym, old_w in {"AAPL": .03, "MSFT": -.02}.items():
+        old_price = 100. if sym == "AAPL" else 200.
+        latest_price = runtime.state["prev_prices"][sym]
+        assert book["holdings_usd"][sym] / latest_price == pytest.approx(
+            runtime.nav0 * old_w / old_price)
     inc = runtime.state["data_incidents"][-1]
     assert inc["kind"] == "NO-TRADE tick"     # dashboard keys on this
     assert "eq=3%" in inc["detail"]

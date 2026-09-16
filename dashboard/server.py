@@ -435,7 +435,8 @@ function render(s){
  document.getElementById('haProg').style.width=prog+'%';
  document.getElementById('haProgTxt').textContent=(pv.n||0)+' / 60 trading days to readout';
  const ev=document.getElementById('expVerdict');
- if(pv.risk_comparable===false){ev.textContent='RISK MISMATCH · NO SUPERIORITY CLAIM';ev.className='chip a';}
+ if(pv.measurement_comparable===false){ev.textContent='VERSION CHANGE · DIAGNOSTIC ONLY';ev.className='chip a';document.getElementById('haProgTxt').textContent='Mixed-version history · no superiority readout';}
+ else if(pv.risk_comparable===false){ev.textContent='RISK MISMATCH · NO SUPERIORITY CLAIM';ev.className='chip a';}
  else if(pv.verdict_allowed&&pv.risk_comparable===true){ev.textContent='READOUT ALLOWED';ev.className='chip '+(pv.mean_daily_bps>=0?'g':'r');}
  else if(pv.verdict_allowed){ev.textContent='RISK COMPARABILITY UNKNOWN';ev.className='chip a';}
  else{ev.textContent='VERDICT LOCKED · needs ≥60d & p<0.05';ev.className='chip gray';}

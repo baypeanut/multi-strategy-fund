@@ -1,0 +1,42 @@
+[
+  {
+    "mutation": "held-dollar drift",
+    "caught": true,
+    "summary": "3 failed, 20 passed in 1.19s"
+  },
+  {
+    "mutation": "liquidity doubled",
+    "caught": true,
+    "summary": "3 failed, 20 passed in 1.03s"
+  },
+  {
+    "mutation": "spot short allowed",
+    "caught": true,
+    "summary": "3 failed, 20 passed in 1.05s"
+  },
+  {
+    "mutation": "missing-ADV additions",
+    "caught": true,
+    "summary": "1 failed, 22 passed in 0.88s"
+  },
+  {
+    "mutation": "position input removed",
+    "caught": true,
+    "summary": "1 failed, 22 passed in 0.91s"
+  },
+  {
+    "mutation": "repeated DD reduction",
+    "caught": true,
+    "summary": "2 failed, 21 passed in 0.88s"
+  },
+  {
+    "mutation": "cross-version verdict",
+    "caught": true,
+    "summary": "1 failed, 22 passed in 0.92s"
+  },
+  {
+    "mutation": "post-scale turnover",
+    "caught": true,
+    "summary": "1 failed, 22 passed in 0.91s"
+  }
+]

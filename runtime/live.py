@@ -8,13 +8,14 @@ Every tick (hourly):
          full parallel history fetch -> engines (S1..S4) -> new target books.
 
 Books therefore only re-decide on NEW information; between decisions they hold
-weights exactly (zero turnover cost, zero LLM spend) while equity still marks
+quantities (zero turnover cost, zero LLM spend) while weights drift and equity marks
 to market hourly. The governor runs every tick regardless — drawdown gates
 must be able to halt a held book too.
 """
 from __future__ import annotations
 
 import json
+import math
 import os
 import pickle
 import threading
@@ -36,6 +37,8 @@ from core.data.universe import (CRYPTO_UNIVERSE, EQUITY_UNIVERSE,
                                 average_dollar_volume, rss_subset)
 from core.env import has_key
 from core.risk.governor import RiskGovernor
+from core.risk.final_limits import briefing_focus, final_limits
+from core.ledger.live_book import mark_book, settle_book
 from systems.s1_quant.covariance import ledoit_wolf_cov
 from systems.s1_quant.engine import QuantEngine, build_panels
 from systems.s1_quant.portfolio import scale_to_target_vol
@@ -384,6 +387,12 @@ class LiveRuntime:
             # comparable realised risk. This does not gate the registered rule;
             # it labels the claim.
             out["risk_comparable"] = bool(0.85 <= (vol_s3 / vol_s1) <= 1.15) if vol_s1 else None
+        if self.state.get("measurement_breaks"):
+            out["statistical_gate_passed"] = out["verdict_allowed"]
+            out["verdict_allowed"] = False
+            out["measurement_comparable"] = False
+            out["diagnostic_only"] = True
+            out["measurement_note"] = "Accounting/portfolio rules changed; mixed-version history is descriptive only"
         return out
 
     # --- common-universe diagnostic (E19 backlog: paired common-universe test)
@@ -1085,15 +1094,21 @@ class LiveRuntime:
         # A5: focused briefing — 500 names would be ~20k tokens of noise; the PM
         # sees its strongest quant signals, live news names, and its own book.
         top_k = CONFIG.get("rebalance", {}).get("briefing_top_k", 40)
-        focus = set(s1_eq.combined_score.abs().nlargest(top_k).index)
-        focus |= set(s2_scores[s2_scores.abs() >= 0.5].index)
-        focus |= set(self.state["systems"]["s3"].get("weights", {}))
-        focus = [s for s in focus if s in eq_hist][:60]
-
+        decision_books = getattr(self, "_decision_books", self.state["systems"])
+        current_s3 = decision_books["s3"].get("weights", {})
+        focus = briefing_focus(current_s3, s1_eq.combined_score, s2_scores,
+                               set(eq_hist), top_k=top_k)
         briefing = build_briefing(focus, {s: eq_hist[s] for s in focus},
-                                  s1_eq.combined_score, s2_scores, s1_eq.vols, reg)
+                                  s1_eq.combined_score, s2_scores, s1_eq.vols, reg,
+                                  positions=current_s3,
+                                  risk_budget_used=sum(abs(w) for w in current_s3.values()))
+        # Unpriceable holdings remain visible as unavailable, never silently
+        # presented as cash. Settlement freezes their dollar value.
+        briefing["unavailable_positions"] = {
+            s: w for s, w in current_s3.items() if s not in focus}
         adv = {s: average_dollar_volume(eq_hist[s]) for s in focus}
-        wrapper = RiskWrapper(universe={s.upper() for s in focus}, nav=self.nav0,
+        wrapper = RiskWrapper(universe={s.upper() for s in focus},
+                              nav=decision_books["s3"]["equity"],
                               max_position=CONFIG.risk.max_position,
                               max_gross=CONFIG.risk.max_gross,
                               adv_cap=CONFIG.risk.liquidity_adv_cap)
@@ -1107,7 +1122,7 @@ class LiveRuntime:
             # let a weaker brain decide — mixing brains inside the final-config
             # window contaminates the Opus-vs-quant attribution (E15b). A held
             # day is a legitimate "no new decision", not a different decision.
-            w_s3 = pd.Series(self.state["systems"]["s3"].get("weights", {}), dtype=float)
+            w_s3 = pd.Series(current_s3, dtype=float)
             s3_source = "held"
             decision_prices = {s: float(eq_hist[s]["close"].iloc[-1])
                                for s in set(focus) | set(w_s3.index) if s in eq_hist}
@@ -1129,7 +1144,8 @@ class LiveRuntime:
             else:
                 pm = base_pm
             try:
-                s3 = S3Engine(wrapper=wrapper, pm=pm).generate(briefing, adv=adv)
+                s3 = S3Engine(wrapper=wrapper, pm=pm).generate(
+                    briefing, adv=adv, current_weights=current_s3)
             finally:
                 self._record_llm_usage("pm", getattr(pm, "usage_total", None))
             s3_source = s3.pm_source
@@ -1153,12 +1169,15 @@ class LiveRuntime:
                 max_position=CONFIG.risk.max_position,
                 max_gross=CONFIG.risk.max_gross,
             )
+            w_s3 = self._limit_book("s3", w_s3, decision_books, max_turnover=wrapper.max_turnover)
             decision_prices = {s: float(eq_hist[s]["close"].iloc[-1])
                                for s in set(focus) | set(w_s3.index) if s in eq_hist}
             self._log_s3_decision(briefing, s3_source, s3.raw_proposal,
                                   s3.violations, w_s3, bar_date,
                                   decision_prices, now)
 
+        w_s1 = self._limit_book("s1", w_s1, decision_books)
+        w_s2 = self._limit_book("s2", w_s2, decision_books)
         books = {"s1": w_s1, "s3": w_s3}
         if not w_s2.empty:
             books["s2"] = w_s2
@@ -1185,9 +1204,17 @@ class LiveRuntime:
         # it keeps being marked, so its equity history stays intact and the
         # paired book comparison does not get a hole in it.
         for book, w in weights.items():
+            weights[book] = self._limit_book(book, w, decision_books)
             if not book_enabled(book):
                 weights[book] = w * 0.0
         return weights, reg.as_dict(), cov, s3_source
+
+    def _limit_book(self, book, target, books, max_turnover=None):
+        current = pd.Series(books[book].get("weights", {}), dtype=float)
+        adv = {s: v[0] for s, v in self.state.get("cost_inputs", {}).items()}
+        return final_limits(target, current, float(books[book]["equity"]), adv,
+                            CONFIG.risk.max_position, CONFIG.risk.max_gross,
+                            CONFIG.risk.liquidity_adv_cap, max_turnover)
 
     # --- IBKR paper-execution mirror (E24) ---------------------------------------
     def _ibkr_target_weights(self, w_s4: pd.Series | None = None) -> dict[str, float]:
@@ -1396,6 +1423,7 @@ class LiveRuntime:
                            f"{type(exc).__name__}: {exc} — marking on raw prices", now)
         safe_prices = ({s: p for s, p in prices.items() if s not in quarantined}
                        if quarantined else prices)
+        safe_prices = {s: p for s, p in safe_prices.items() if math.isfinite(p) and p > 0}
         if quarantined:
             # ONE incident per tick regardless of count: a wholesale provider
             # glitch on hundreds of names must not flush the incident ring.
@@ -1408,8 +1436,21 @@ class LiveRuntime:
                         "its skipped P&L needs human reconciliation")
             self._incident("MARK-QUARANTINE", detail, now)
 
+        if self.state.get("accounting_version") != "self_financing_v2":
+            boundary = {"version": "self_financing_v2", "ts": now.isoformat(),
+                        "tick_before": self.state["ticks"],
+                        "baseline_equity": {k: self.state["systems"][k]["equity"] for k in active},
+                        "reason": "Held-quantity accounting, final liquidity/spot limits, S3 position-aware briefing"}
+            if self.state["ticks"]:
+                self.state.setdefault("measurement_breaks", []).append(boundary)
+            self.state["accounting_regime"] = boundary
+            self.state["accounting_version"] = "self_financing_v2"
         prev_w = {k: pd.Series(self.state["systems"][k].get("weights", {}), dtype=float)
                   for k in active}
+        marks = {k: mark_book(self.state["systems"][k]["equity"], prev_w[k],
+                              self.state.get("prev_prices", {}), safe_prices) for k in active}
+        self._decision_books = {k: {"equity": m.equity, "weights": m.weights.to_dict()}
+                                for k, m in marks.items()}
 
         # E63: a provider switch changes the DEFINITION of return, not just the
         # source of it. Polygon is requested `adjusted=true`, which is
@@ -1449,7 +1490,7 @@ class LiveRuntime:
         s3_source = None
         cov = None
         regime = self.state.get("regime", {})
-        weights = prev_w
+        weights = {k: m.weights.copy() for k, m in marks.items()}
 
         if not light.ok:
             # degraded market snapshot: hold, mark with whatever we have
@@ -1524,13 +1565,7 @@ class LiveRuntime:
         # Assess the CURRENT mark, before authorizing new risk. The stored
         # equity is the previous tick; using it delays a crash-triggered halt
         # by a whole tick. Final accounting below still books this P&L once.
-        s4_mark_return = 0.0
-        previous_prices = self.state.get("prev_prices", {})
-        for sym, wt in prev_w["s4"].items():
-            p0, p1 = previous_prices.get(sym), safe_prices.get(sym)
-            if p0 and p1 and p0 > 0:
-                s4_mark_return += float(wt) * (p1 / p0 - 1.0)
-        s4_marked_equity = self.state["systems"]["s4"]["equity"] * (1 + s4_mark_return)
+        s4_marked_equity = marks["s4"].equity
         # governor runs EVERY tick (gates must be able to halt a held book)
         hist_s4 = self.state["equity_history"]["s4"]
         if hist_s4:
@@ -1544,7 +1579,14 @@ class LiveRuntime:
             self._last_cov = cov
         decision = self.governor.assess(
             weights["s4"], equity_curve=s4_eq_hist,
-            cov_daily=cov if cov is not None else self._last_cov)
+            cov_daily=cov if cov is not None else self._last_cov,
+            applied_drawdown_scale=(1.0 if rebalanced else
+                                    self.state.get("governor_applied_drawdown", 1.0)))
+        if rebalanced:
+            next_drawdown_scale = decision.risk_scale
+        else:
+            next_drawdown_scale = min(
+                self.state.get("governor_applied_drawdown", 1.0), decision.risk_scale)
         weights["s4"] = decision.weights
         actions = (["NO-TRADE: degraded data"] if no_trade else []) + decision.actions
 
@@ -1562,6 +1604,14 @@ class LiveRuntime:
                 weights[k] = weights.get(k, pd.Series(dtype=float)) * 0.0
             actions.append(f"halt latched since {self.state['halt_latched']['ts']}")
 
+        # Risk limits also apply to drifted books between decisions. A missing
+        # ADV never authorizes an addition; settlement freezes unpriced names.
+        if self.state.get("cost_inputs"):
+            for k in active:
+                weights[k] = self._limit_book(k, weights[k], self._decision_books)
+        for k in active:
+            if not book_enabled(k):
+                weights[k] = weights[k] * 0.0
         self.state["last_actions"] = actions
         if decision.halted or decision.risk_scale < 1.0:
             queue_note(self.state, "GOVERNOR: " + "; ".join(decision.actions))
@@ -1573,9 +1623,27 @@ class LiveRuntime:
         # Day-count basis matches CostModel.borrow_cost (/252 trading days).
         today = now.date().isoformat()
         charge_borrow = self.state.get("last_borrow_date") != today
+        borrow_daily = CONFIG.costs.equities.get("borrow_annual_bps", 50) * 1e-4 / 252.0
+
+        # Validate ALL settlements before mutating any book. A later book's
+        # invalid target must not leave earlier books marked twice on retry.
+        settlements = {}
+        for sys_name in active:
+            mark, pw = marks[sys_name], prev_w[sys_name]
+            new_w = weights.get(sys_name, pd.Series(dtype=float))
+            # Borrow is paid from CASH, not by silently reducing every share.
+            short_equities = [v for sym, v in mark.holdings.items() if v < 0 and "/" not in sym]
+            borrow_usd = (sum(abs(v) for v in short_equities)
+                          * borrow_daily if charge_borrow else 0.0)
+            frozen = {sym for sym in pw.index.union(new_w.index)
+                      if not safe_prices.get(sym) or safe_prices[sym] <= 0}
+            settled = settle_book(mark, new_w, self._turnover_cost, borrow_usd, frozen,
+                                  hold_limits=(CONFIG.risk.max_position, CONFIG.risk.max_gross)
+                                  if self.state.get("cost_inputs") else None)
+            settlements[sys_name] = (settled, frozen)
         if charge_borrow:
             self.state["last_borrow_date"] = today
-        borrow_daily = CONFIG.costs.equities.get("borrow_annual_bps", 50) * 1e-4 / 252.0
+        self.state["governor_applied_drawdown"] = next_drawdown_scale
 
         # attribution accumulates across the trading day (reset on a new bar):
         # equities only re-mark once/day (two-tier architecture) while crypto
@@ -1596,44 +1664,27 @@ class LiveRuntime:
             sysd = self.state["systems"][sys_name]
             pw = pd.Series(sysd.get("weights", {}), dtype=float)
             new_w = weights.get(sys_name, pd.Series(dtype=float))
-            equity_before = sysd["equity"]
-
-            realized = 0.0
-            if prev_prices:
-                for sym, w in pw.items():
-                    # safe_prices: a quarantined mark is treated exactly like a
-                    # missing one — no P&L, no attribution row (STALE-MARK may
-                    # co-fire for the unmarked weight, which is correct)
-                    p0, p1 = prev_prices.get(sym), safe_prices.get(sym)
-                    if p0 and p1 and p0 > 0:
-                        r = p1 / p0 - 1.0
-                        realized += w * r
-                        if sys_name == "s4":
-                            entry = s4_acc.setdefault(sym, [0.0, 0.0])
-                            entry[0] = float(w)
-                            entry[1] += float(w) * r * equity_before
-                    elif p0 and not p1:
-                        missing_per_book[sys_name] += abs(float(w))
-            # common-universe diagnostic index (equity legs of s1/s3 only) —
-            # feeds the s3_vs_s1_common readout; no effect on book equity
+            mark = marks[sys_name]
+            for sym, w in pw.items():
+                p0, p1 = prev_prices.get(sym), safe_prices.get(sym)
+                if p0 and p1 and p0 > 0:
+                    if sys_name == "s4":
+                        entry = s4_acc.setdefault(sym, [0.0, 0.0])
+                        entry[0] = float(w)
+                        entry[1] += float(mark.pnl.get(sym, 0.0))
+                elif p0 and not p1:
+                    missing_per_book[sys_name] += abs(float(w))
             self._mark_common(sys_name, pw, prev_prices, safe_prices, now)
-            # spread + impact + commission on turnover — the same CostModel
-            # stack the paper broker and backtests charge (single cost surface)
-            cost = self._turnover_cost(pw, new_w, equity_before)
-            if charge_borrow:
-                short_gross = float(pw[pw < 0].abs().sum())
-                cost += short_gross * borrow_daily
-
-            sysd["equity"] = sysd["equity"] * (1 + realized) * (1 - cost)
-            # E60b: cost was applied to equity and discarded, and per-tick
-            # weights are not stored, so 'how much of the book's move is cost
-            # drag' was unreconstructable. Cumulative counters, additive keys
-            # only. Guarded so a corrupt state value can never stop marking.
-            cost_usd = equity_before * (1.0 + realized) * cost
-            union = pw.index.union(new_w.index)
-            l1_turn = (float((new_w.reindex(union).fillna(0.0)
-                              - pw.reindex(union).fillna(0.0)).abs().sum())
-                       if len(union) else 0.0)
+            settled, frozen = settlements[sys_name]
+            sysd.update({k: settled[k] for k in ("equity", "weights", "holdings_usd", "cash_usd")})
+            sysd["unpriced_holdings"] = sorted(s for s in frozen if abs(pw.get(s, 0.0)) > 0)
+            cost_usd = settled["transaction_cost_usd"] + settled["borrow_cost_usd"]
+            l1_turn = settled["turnover"]
+            sysd["last_costs"] = {k: settled[k] for k in
+                                  ("transaction_cost_usd", "borrow_cost_usd", "turnover")}
+            weights[sys_name] = pd.Series(sysd["weights"], dtype=float)
+            if sys_name == "s4" and l1_turn > 1e-10:
+                self.state["ibkr_mirror_pending"] = True
             cp = self.state.get("cost_paid_usd")
             if not isinstance(cp, dict):
                 cp = self.state["cost_paid_usd"] = {}
@@ -1650,7 +1701,6 @@ class LiveRuntime:
                 prev_turn = 0.0
             cp[sys_name] = round(prev_cost + cost_usd, 2)
             tl[sys_name] = round(prev_turn + l1_turn, 6)
-            sysd["weights"] = {k: float(v) for k, v in new_w.items() if abs(v) > 1e-9}
             self.state["equity_history"][sys_name].append(
                 [now.isoformat(), round(sysd["equity"], 2)])
             self.state["equity_history"][sys_name] = \
@@ -1703,7 +1753,8 @@ class LiveRuntime:
         # genuine split re-bases here and marks normally from the next tick,
         # while a transient bad print inverts its ratio on the way back, is
         # quarantined again, and round-trips to exactly zero net P&L.
-        self.state.setdefault("prev_prices", {}).update(prices)
+        self.state.setdefault("prev_prices", {}).update(
+            {s: p for s, p in prices.items() if math.isfinite(p) and p > 0})
         self.state["ticks"] += 1
         self.state["last_tick"] = now.isoformat()
         self.state["regime"] = regime
@@ -1743,7 +1794,7 @@ class LiveRuntime:
         # degraded tick still owes.
         halt_flatten = bool(self.state.get("halt_latched"))
         session_ok = halt_flatten or not _session_only() or in_cash_session(now)
-        if (rebalanced or halt_flatten) and ibkr_on and session_ok:
+        if (rebalanced or halt_flatten or self.state.get("ibkr_mirror_pending")) and ibkr_on and session_ok:
             # safe_prices: a quarantined name simply has no price in the call,
             # so plan_equity_mirror skips its entry and sends a price-less exit
             # that self-heals on the next sync (existing, tested semantics).
@@ -1751,6 +1802,9 @@ class LiveRuntime:
                 lambda: self._mirror_to_ibkr(weights["s4"], safe_prices, now), 120)
             if res.get("ok"):
                 mirrored = True
+                report = self.state.get("ibkr", {})
+                self.state["ibkr_mirror_pending"] = bool(
+                    report.get("failed") or report.get("api_errors"))
             elif res.get("timeout"):
                 self._incident("IBKR-SYNC-TIMEOUT",
                                "mirror deadline exceeded — further orders revoked", now)

@@ -88,18 +88,19 @@ def test_turnover_cost_accumulates_in_dollars(rt, monkeypatch):
     out = rt.tick()
     assert out["rebalanced"]
 
+    book = rt.state["systems"]["s1"]
+    trade_usd = .05 * book["equity"]  # target weight refers to post-cost NAV
     bd = CostModel(CostParams(**CONFIG.costs.equities)).estimate(
-        0.05 * eq0, adv=200e6, daily_vol=0.015)
-    frac = 0.05 * (bd.slippage + bd.commission)
-    expected_usd = eq0 * frac            # realized == 0: the book started flat
+        trade_usd, adv=200e6, daily_vol=0.015)
+    expected_usd = trade_usd * (bd.slippage + bd.commission)
 
     # counters are stored to the cent / 1e-6, hence the absolute slack
     assert rt.state["cost_paid_usd"]["s1"] == pytest.approx(
         expected_usd, rel=1e-6, abs=0.01)
-    assert rt.state["turnover_l1_cum"]["s1"] == pytest.approx(0.05, abs=1e-9)
+    assert rt.state["turnover_l1_cum"]["s1"] == pytest.approx(trade_usd / eq0, abs=5e-7)
     # and the counter reconciles with what equity actually lost
     assert rt.state["systems"]["s1"]["equity"] == pytest.approx(
-        eq0 * (1 - frac), rel=1e-12)
+        eq0 - expected_usd, rel=1e-12)
 
 
 def test_held_tick_accrues_nothing(rt, monkeypatch):

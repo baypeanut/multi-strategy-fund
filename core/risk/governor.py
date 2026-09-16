@@ -59,6 +59,7 @@ class RiskGovernor:
         proposed: pd.Series,
         equity_curve: pd.Series | None = None,
         cov_daily: pd.DataFrame | None = None,
+        applied_drawdown_scale: float = 1.0,
     ) -> GovernorDecision:
         actions: list[str] = []
         risk_scale = 1.0
@@ -84,7 +85,9 @@ class RiskGovernor:
                 risk_scale *= 0.5
                 actions.append(f"DD {dd:.1%} <= gate1 ({self.dd_gate_1:.0%}) -> sizing x0.5")
 
-        w = proposed * risk_scale
+        # On a held book apply only a NEW reduction. Repeated hourly checks
+        # must not halve the same holdings again, nor add risk on recovery.
+        w = proposed * min(1.0, risk_scale / max(applied_drawdown_scale, 1e-12))
 
         # --- parametric VaR limit ---
         if cov_daily is not None and not w.empty:
