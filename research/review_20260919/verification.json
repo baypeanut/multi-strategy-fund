@@ -1,0 +1,96 @@
+{
+  "checked_utc": "2026-09-19T19:37:40.677174+00:00",
+  "services": {
+    "paper-trader": "active",
+    "rsi-mavilim-universe": "active",
+    "rsi-mavilim-dashboard": "active",
+    "rsi-mavilim-paper": "active",
+    "ib-gateway": "active"
+  },
+  "rsi": {
+    "code_commit": "6d4a91666a1f29bfb37b071f466b4db10e17e176",
+    "effective_at": 1789846558.20974,
+    "status": "RUNNING",
+    "coverage": {
+      "healthy": 70,
+      "total": 70
+    },
+    "cycles": 4775,
+    "last_poll": 1789846621.2255924,
+    "halted": false,
+    "open_positions": 5,
+    "fills": 11,
+    "spec_hash": "92292dda80c009babdfb40ef6578731fa4fe9534c504b042488a5da3cdc4b571",
+    "revision_audit_events": 1,
+    "source_hashes": {
+      "market_data.py": "f1487992950e3db81e525e15741955cc53aaf3b9548f9fe45bcf4c8e5d62e4b1",
+      "paper.py": "638aed545373e4139d4205437bf5271997a3512073660fb3c6051a2fe861e1a8",
+      "portfolio.py": "30500fa4437a76e1cf6983795007418b5ef7d16f187f5be7d5ae8d40fefb1dbc",
+      "universe_feed.py": "3a9087223dc19931c46a66eb4c86d118e1c95eb89c28e295a664f33ad7c0cba3",
+      "review_revision.py": "cfea59030a11b7198176aff4fd6a82b80d72073185ba04c091ca653264700fe0",
+      "test_data_recovery.py": "52d5dbecc751266f336ab29be0e390a54c385e9c13080e6d90d8d64977b510e2"
+    },
+    "local_server_hash_match": true
+  },
+  "main": {
+    "ticks": 2227,
+    "last_tick": "2026-09-19T18:35:06.722200+00:00",
+    "halted": false,
+    "accounting_version": "self_financing_v2",
+    "cash_reconciliation_errors": {
+      "s1": 0.0,
+      "s2": 0.0,
+      "s3": 0.0,
+      "s4": 0.0,
+      "s5": 0.0
+    },
+    "research_timer": "disabled",
+    "source_hashes": {
+      "research/engineer.py": "76f56540462361a4250d3ae59669c3b95a343070c260e3bd8f12870b1ea41196",
+      "tests/test_engineer_context.py": "d62538ef60b31327fe2d4baded460c568a0b1d6b64a77613e7144e19feab9651"
+    },
+    "local_server_hash_match": true
+  },
+  "tests": {
+    "rsi_local": {
+      "passed": 96
+    },
+    "rsi_server": {
+      "passed": 96
+    },
+    "main_local": {
+      "passed": 657,
+      "skipped": 1
+    },
+    "main_server": {
+      "passed": 657,
+      "skipped": 1
+    },
+    "main_public": {
+      "passed": 656,
+      "skipped": 2
+    }
+  },
+  "rsi_mutations": [
+    {
+      "mutation": "uncommitted_tail",
+      "caught": true,
+      "test": "CommittedCandleTests.test_local_rollover_does_not_commit_provider_last_row"
+    },
+    {
+      "mutation": "stock_stop_blocked",
+      "caught": true,
+      "test": "ExitRecoveryTests.test_stock_history_error_does_not_disable_verified_minute_stop"
+    },
+    {
+      "mutation": "exit_intent_forgotten",
+      "caught": true,
+      "test": "ExitRecoveryTests.test_indicator_exit_survives_quote_failure_restart_and_signal_recovery"
+    },
+    {
+      "mutation": "arbitrary_revision_accepted",
+      "caught": true,
+      "test": "CommittedCandleTests.test_only_exact_acknowledged_revision_preserves_original_history"
+    }
+  ]
+}

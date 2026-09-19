@@ -119,3 +119,12 @@ sorunu nedeniyle 1 hata. Düzeltme sonrası: **657 geçti, 1 atlandı**.
 RSI önce 79, sonra **96 test** geçti. Dört kasıtlı RSI regresyonu da
 testlerle yakalandı. Sunucu testleri, dağıtım hash'leri ve son sağlık
 durumu ayrı dağıtım kaydına eklenir.
+
+Dağıtım tamamlandı: RSI kod sınırı **19 Eylül 19:35:58 UTC**. İlk yeni
+döngüde 70/70 veri sağlıklı, XRP tekrar aktif, açık beş pozisyon ve 11
+gerçekleşme korunuyor. Dashboard HTTP 200; iki bot ve broker servisi aktif.
+Ana bot servisi yeniden başlatılmadı; kapalı mühendis modülüne kaynak/test
+yaması uygulandı. Sunucuda ana bot **657 geçti, 1 atlandı**, RSI **96 geçti**.
+Public ana depo testinde **656 geçti, 2 atlandı**; ek atlama public depoda
+özel araştırma kuyruğu bulunmamasından kaynaklanıyor. Kaynak hash'leri,
+sağlık ve test kanıtı `research/review_20260919/verification.json` içinde.
