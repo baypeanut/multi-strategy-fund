@@ -597,7 +597,10 @@ _TAIL_CHARS = {
 # to the files it was raised for rather than evicting something else. The
 # no-eviction assert in tests/test_engineer_context.py stays the loud failure
 # if the tree ever outgrows this.
-_MAX_CTX_CHARS = 1_200_000
+# 2026-09-19: the current source tree exceeds 1.2M and evicts watchdog tests.
+# Preserve the full reviewed tree with modest headroom; this does not enable
+# the disabled engineer lane or issue any model call.
+_MAX_CTX_CHARS = 1_350_000
 
 
 def _curve_stats(series: list) -> dict | None:
@@ -872,7 +875,6 @@ def build_context() -> str:
         parts.append("=== YOUR PAST PROPOSALS (learn from outcomes) ===\n"
                      + json.dumps(hist[-15:], indent=1))
 
-    budget = _MAX_CTX_CHARS - sum(len(p) for p in parts)
     src: list[str] = []
     for d in _CTX_DIRS:
         base = ROOT / d
@@ -907,13 +909,15 @@ def build_context() -> str:
                         + f"\n... [{len(text) - _MAX_FILE_CHARS:,} chars CUT of "
                           f"{len(text):,} — this file is TRUNCATED]")
             blob = f"\n--- FILE: {rel} ---\n{text}"
-            if budget - len(blob) < 0:
-                src.append(f"\n--- FILE: {rel} --- [omitted, context budget]")
-                continue
-            budget -= len(blob)
             src.append(blob)
     parts.append("=== SOURCE TREE ===" + "".join(src))
-    return "\n\n".join(parts)
+    context = "\n\n".join(parts)
+    if len(context) > _MAX_CTX_CHARS:
+        raise ValueError(
+            f"Engineer context exceeds budget ({len(context):,} > "
+            f"{_MAX_CTX_CHARS:,}); review context policy before a model call. "
+            "No source files were silently omitted.")
+    return context
 
 
 # ---------------------------------------------------------------- session --

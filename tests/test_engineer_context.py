@@ -8,8 +8,15 @@ data being present and the prompt no longer describing the retired
 human-review gate.
 """
 import json
+import pytest
 
 import research.engineer as eng
+
+
+def test_context_overflow_refuses_partial_source_review(monkeypatch):
+    monkeypatch.setattr(eng, "_MAX_CTX_CHARS", 1)
+    with pytest.raises(ValueError, match="No source files were silently omitted"):
+        eng.build_context()
 
 
 def test_curve_stats_reports_return_and_drawdown():
