@@ -158,23 +158,75 @@ def describe_owned(args,state):
     return cluster
 
 
+def operation_status(args, operation, name):
+    """Accept only the recorded create operation for this exact zonal cluster."""
+    if not isinstance(operation, dict) or operation.get("name") != name:
+        return "UNKNOWN"
+    target = operation.get("targetLink", "")
+    suffixes = tuple(f"/{scope}/{args.zone}/clusters/{args.name}" for scope in ("zones", "locations"))
+    if (operation.get("operationType") != "CREATE_CLUSTER" or
+            not isinstance(target, str) or not target.endswith(suffixes)):
+        return "UNKNOWN"
+    status = operation.get("status")
+    return status if status in ("PENDING", "RUNNING", "ABORTING", "DONE") else "UNKNOWN"
+
+
+def creation_status(args, state):
+    """A missing cluster is conclusive only after its create operation is terminal."""
+    if state.get("create_attempted") is False:
+        return "NOT_ATTEMPTED"
+    name = state.get("create_operation")
+    if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", name):
+        return "UNKNOWN"  # Includes a CLI timeout with no accepted operation ID.
+    if state.get("create_operation_status") == "DONE":
+        return "DONE"  # A previously verified terminal operation cannot resume.
+    try:
+        operation = cloud(args.project, "container", "operations", "describe", name, "--zone", args.zone)
+        status = operation_status(args, operation, name)
+    except (CloudError, subprocess.TimeoutExpired):
+        status = "UNKNOWN"
+    state["create_operation_status"] = status
+    return status
+
+
+def pending_cleanup(status):
+    return {"cluster_deleted": False, "cleanup_pending": True, "cleanup_confirmed": False,
+            "gpu_deployment_verified": False, "create_operation_status": status,
+            "note": "Creation is pending or unconfirmed; cluster absence does not prove cleanup. "
+                    "Inspect the create operation and exact cluster in the named project/zone, "
+                    "recover an unknown operation outcome, then rerun cleanup. Operator attention required."}
+
+
+def confirm_absence(args, state):
+    state.update({"cluster_deleted": True, "cleanup_pending": False, "cleanup_confirmed": True,
+                  "cleanup_confirmed_at": utc_now().isoformat()})
+    save_private(args.state, state)
+    return {"cluster_deleted": True, "cleanup_pending": False, "cleanup_confirmed": True,
+            "cleanup_confirmed_at": state["cleanup_confirmed_at"],
+            "note": "Create operation is terminal and cluster absence is confirmed; "
+                    "final charges/residual PVC disks/registry require separate provider checks"}
+
+
 def cleanup(args,state):
     # Deletes only the exact owned cluster, never all project clusters/VMs/disks.
+    state.update({"cluster_deleted": False, "cleanup_pending": True, "cleanup_confirmed": False})
+    save_private(args.state, state)
+    status = creation_status(args, state)
+    save_private(args.state, state)
+    if status not in ("DONE", "NOT_ATTEMPTED"):
+        # Bounded fail-closed recovery: do not wait forever or claim a pending create was deleted.
+        return pending_cleanup(status)
+    # This read must follow terminal-operation verification, not precede it.
     try: describe_owned(args,state)
     except NotFound:
-        state["cluster_deleted"]=True
-        save_private(args.state,state)
-        return {"cluster_deleted":True,"gpu_deployment_verified":False,"note":"Cluster absent; confirm residual persistent disks, registry and final invoice separately"}
+        return confirm_absence(args, state)
     cloud(args.project,"container","clusters","delete",args.name,"--zone",args.zone,"--async")
     deadline=time.monotonic()+600
     while time.monotonic()<deadline:
         time.sleep(10)
         try: describe_owned(args,state)
         except NotFound:
-            state.update({"cluster_deleted":True,"cleanup_confirmed_at":utc_now().isoformat()})
-            save_private(args.state,state)
-            return {"cluster_deleted":True,"cleanup_confirmed_at":state["cleanup_confirmed_at"],
-                    "note":"GKE cluster deletion confirmed; final charges/residual PVC disks/registry require separate provider checks"}
+            return confirm_absence(args, state)
     state["cleanup_confirmed"]=False
     save_private(args.state,state)
     raise CloudError("Cleanup requested but not confirmed within 10 minutes; immediate operator attention required")
@@ -211,6 +263,7 @@ def main():
             result=preflight(args);emit(result,args.output);return 0 if result["preflight_passed"] else 2
         if args.action=="status":
             state=read_state(args)
+            creation = creation_status(args, state)
             try:
                 c=describe_owned(args,state)
                 emit({"checked_at":utc_now().isoformat(),"project_fingerprint":project_hash(args.project),"zone":args.zone,
@@ -218,13 +271,19 @@ def main():
                       "node_pools":[{"name":n.get("name"),"initial_node_count":n.get("initialNodeCount"),"machine_type":n.get("config",{}).get("machineType"),
                                      "accelerators":n.get("config",{}).get("accelerators"),"autoscaling_enabled":n.get("autoscaling",{}).get("enabled",False)} for n in c.get("nodePools",[])],
                       "cleanup_due":state["cleanup_due"],"gpu_deployment_verified":False},args.output)
-            except NotFound: emit({"cluster_deleted":True},args.output)
+            except NotFound:
+                confirmed = creation in ("DONE", "NOT_ATTEMPTED")
+                emit({"cluster_deleted": True, "cleanup_pending": False, "cleanup_confirmed": True}
+                     if confirmed else pending_cleanup(creation), args.output)
+                return 0 if confirmed else 2
             return 0
         if not args.execute:
             emit({"cloud_created":False,"execute_required":True,"create_command":public_command(args,"PLAN") if args.action=="create" else None},args.output)
             return 0
         if args.action=="cleanup":
-            emit(cleanup(args,read_state(args)),args.output);return 0
+            state=read_state(args)
+            result=cleanup(args,state)
+            emit(result,args.output);return 0 if result["cluster_deleted"] else 2
         if not args.watch: raise ValueError("Execute-create requires --watch to keep the cleanup timer in the foreground")
         result=preflight(args)
         if not result["preflight_passed"]: emit(result,args.output);return 2
@@ -238,7 +297,12 @@ def main():
         try:
             state["create_attempted"]=True;save_private(args.state,state)
             operation=cloud(args.project,*create_command(args,state["demo_id"]),timeout=120)
-            emit({"cloud_create_requested":True,"operation_status":operation.get("status"),"cleanup_due":due.isoformat(),
+            # Persist the identity before output/watching, so interruption can reconcile acceptance.
+            name=operation.get("name") if isinstance(operation,dict) else None
+            state["create_operation"]=name
+            state["create_operation_status"]=operation_status(args,operation,name) if name else "UNKNOWN"
+            save_private(args.state,state)
+            emit({"cloud_create_requested":True,"operation_status":state["create_operation_status"],"cleanup_due":due.isoformat(),
                   "gpu_deployment_verified":False,"project_fingerprint":project_hash(args.project)},args.output)
             while utc_now()<due:
                 time.sleep(min(20,max(0.1,(due-utc_now()).total_seconds())))
@@ -252,10 +316,13 @@ def main():
                 state["observed_cluster"]=True;save_private(args.state,state)
         finally:
             if state.get("create_attempted"):
-                emit(cleanup(args,state),args.output)
-        return 0
+                result=cleanup(args,state)
+                emit(result,args.output)
+        return 0 if result["cluster_deleted"] else 2
     except (CloudError,ValueError,FileNotFoundError,subprocess.TimeoutExpired,KeyboardInterrupt) as exc:
-        emit({"operation_failed":True,"gpu_deployment_verified":False,"error":str(exc) or "Interrupted", "cleanup_must_be_confirmed":bool(state and not state.get("cluster_deleted"))},args.output)
+        pending=bool(state and not state.get("cluster_deleted"))
+        emit({"operation_failed":True,"gpu_deployment_verified":False,"error":str(exc) or "Interrupted",
+              "cleanup_pending":pending,"cleanup_must_be_confirmed":pending},args.output)
         return 2
 
 

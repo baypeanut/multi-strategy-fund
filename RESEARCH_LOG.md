@@ -565,3 +565,17 @@ Clean Linux Python3.12/3.14 and installed-wheel evidence is retained separately.
 Remaining evaluation limitations are documented in docs/ML_ENGINEERING.md. This
 release does not establish an executable edge, model superiority or a live-money
 mandate. GPU cleanup and estimated billing scope are recorded with serving evidence.
+
+### 2026-10-09 — Reconcile asynchronous demo creation before claiming cleanup
+
+An independent cloud review found that an early cluster `NotFound` could be mistaken
+for cleanup while an accepted asynchronous create operation was still running.
+Persist the operation identity, validate its target, and require a terminal creation
+outcome before confirming cluster absence. Pending/unknown creation now reports
+unconfirmed cleanup and requires operator recovery; deletion remains restricted to
+the exact owned cluster. The existing completed GPU demo evidence is unchanged.
+
+Added 17 isolated lifecycle regressions. In a clean Python 3.14 environment with fund
+and serving dependencies: 886 passed, 2 expected skips; dependency consistency,
+lint, and wheel/source builds passed. These checks mocked cloud operations and did
+not create resources, call a model, submit orders, or alter operational paper books.

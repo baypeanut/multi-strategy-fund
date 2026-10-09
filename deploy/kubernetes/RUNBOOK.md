@@ -72,6 +72,8 @@ The create plan contains exactly one zonal `g2-standard-8` node and one L4 with 
 
 Creation requires `--watch`; the process remains available for the <=120-minute lifetime and requests provider cluster deletion at expiration or failure. **This is a local foreground watcher, not a provider-side hard TTL.** Killing its host/process can defeat cleanup, and managed deletion can take additional time. If the operator cannot keep it alive, independently configure provider cleanup before starting. The $20 validation is an approved budget and conservative cost envelope, not a hard Google billing cap or measured invoice. Remaining disks/images/network charges must be reviewed after cluster deletion.
 
+The helper persists the accepted create-operation identity before watching. An absent cluster while creation is pending or unknown is **not confirmed cleanup**: status/cleanup report `cleanup_pending: true` and exit 2. Inspect the exact create operation and cluster in the selected project/zone, wait for a terminal outcome, then rerun cleanup. If a CLI timeout or legacy state has no operation identity, reconcile that outcome with the provider before recovering the private state; do not mark a transient `NotFound` as deleted. Confirmed cluster deletion still requires separate checks for residual disks, images, and final charges.
+
 ```bash
 python scripts/gke_gpu_demo.py preflight --project PROJECT --zone ZONE --node-service-account DEDICATED_NODE_SA --artifact-repository REPOSITORY --authorized-cidr OPERATOR_IPV4/32
 # Requires the approved project and the dedicated service account/repository to already exist.
