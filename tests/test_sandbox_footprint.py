@@ -63,3 +63,24 @@ def test_sandbox_tmp_falls_back_when_unusable(monkeypatch):
     """It must never be the thing that breaks the sandbox."""
     monkeypatch.setattr(os.path, "isdir", lambda p: False)
     assert eng._sandbox_tmp_root() is None
+
+
+def test_sandbox_excludes_new_environments_and_generated_package_copies(tmp_path, monkeypatch):
+    src = tmp_path / "repo"
+    artifacts = (
+        ".venv/lib/site-packages/copied.py", "venv/lib/site-packages/legacy.py",
+        "build/lib/core/copied.py", "dist/release.whl",
+        "systematic_fund_research.egg-info/PKG-INFO",
+        "core/nested.egg-info/generated.py",
+    )
+    for rel in (*artifacts, "core/data/base.py", "runtime/live.py"):
+        path = src / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("# fixture\n")
+    monkeypatch.setattr(eng, "ROOT", src)
+    dst = tmp_path / "copy"
+    eng._copy_repo(dst)
+    for rel in artifacts:
+        assert not (dst / rel).exists()
+    assert (dst / "core/data/base.py").exists(), "actual data provider source must survive"
+    assert (dst / "runtime/live.py").exists()

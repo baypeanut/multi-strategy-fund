@@ -18,3 +18,16 @@ logs/
 
 # agent scratch
 research/WISHES.md
+# secrets — NEVER commit
+.venv/
+# live fund ledger + artifacts (covered by scripts/backup_state.py, not git)
+# Root-anchored on purpose: a bare `data/` also matched core/data/, so the
+# whole provider layer sat untracked from the first commit until 2026-07-31.
+# deploy backups
+*.bak.*
+research/artifacts/
+# Local build/developer outputs (never fund ledgers)
+build/
+dist/
+*.egg-info/
+.ruff_cache/

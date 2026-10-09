@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools==82.0.1", "wheel==0.48.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "systematic-fund-research"
+version = "0.1.0"
+description = "Paper-trading research with deterministic risk controls and validated model serving"
+readme = "README.md"
+requires-python = ">=3.12,<3.15"
+dependencies = [
+  "numpy==2.4.6", "pandas==3.0.3", "scipy==1.17.1", "PyYAML==6.0.3",
+  "certifi==2026.6.17", "yfinance==1.4.1", "ccxt==4.5.59",
+  "anthropic==1.13.0", "statsmodels==0.15.0",
+]
+
+[project.optional-dependencies]
+serving = [
+  "fastapi==0.143.0", "pydantic==2.14.0", "httpx==0.28.1",
+  "uvicorn==0.54.0", "prometheus-client==0.26.0",
+]
+dev = ["pytest==9.1.0", "pytest-timeout==2.4.0", "ruff==0.16.10", "build==1.6.1"]
+
+[project.scripts]
+fund-paper = "scripts.run_paper_live:main"
+fund-dashboard-demo = "scripts.demo_dashboard:main"
+
+[tool.setuptools]
+include-package-data = false
+
+# Explicit allowlist: historical archives, reports, tests and live records are
+# not discoverable package namespaces or wheel data.
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["core", "core.*", "systems", "systems.*", "backtest", "runtime", "dashboard", "scripts", "research", "serving", "config"]
+namespaces = true
+
+[tool.setuptools.package-data]
+config = ["config.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+include = ["*.py", "pyproject.toml"]
+extend-exclude = ["research/artifacts", "research/proposals", "research/status_*", "research/audit_*", "data", "logs", "venv", "build", "dist"]
+
+[tool.ruff.lint]
+# Start with defects that can break execution. Wider style/typing adoption is
+# incremental; this avoids reformatting frozen experiments for cosmetic changes.
+select = ["E9", "F821", "F822", "F823"]

@@ -10,10 +10,18 @@ Design contract (persona: rigorous quant):
 - tabular/monospace numerals, flat light theme, book-drill-down sheet
 Single stdlib HTTP server + Chart.js CDN; no build step.
 """
+
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
+import ipaddress
 import json
+import os
+import re
 import threading
+from urllib.parse import urlsplit
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -70,6 +78,8 @@ button.tg.on{background:#4f5fe0;color:#fff;border-color:#4f5fe0}
 .actrow{position:relative;margin-bottom:11px;padding-left:16px}
 .actrow .adot{position:absolute;left:0;top:3px;width:7px;height:7px;border-radius:50%;border:2px solid #fff}
 .opsrow{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f1f4f8;font-size:12px}
+#demoBanner{background:#fff7e6;border:1px solid #edc983;border-radius:8px;color:#8a5200;padding:12px 16px;margin-bottom:12px;font-size:13px}
+#demoBanner[data-demo="false"]{display:none}
 .haltbanner{background:#fdeaea;border:1px solid #f6c9c7;color:#b91c1c;border-radius:10px;padding:10px 16px;margin-bottom:12px;font-size:12.5px;font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:10px}
 .row2{display:grid;grid-template-columns:1.55fr 1fr;gap:12px;margin-bottom:12px}
 .row3{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:12px;margin-bottom:12px}
@@ -91,6 +101,8 @@ button.tg.on{background:#4f5fe0;color:#fff;border-color:#4f5fe0}
 </style></head><body>
 <div class=wrap>
 
+<div id=demoBanner data-demo="false"><strong>DEMO · SYNTHETIC DATA</strong> — Generated interface fixtures. No market history, strategy returns, model inference or broker transactions.</div>
+
 <div id=haltBanner class=haltbanner style="display:none">
   <span id=haltText></span>
   <span class=num style="font-weight:400;font-size:11px">clear via scripts/clear_halt.py</span>
@@ -110,7 +122,7 @@ button.tg.on{background:#4f5fe0;color:#fff;border-color:#4f5fe0}
     <div style="display:flex;gap:9px;justify-content:flex-end;align-items:center;margin-top:5px">
       <span id=kDayHeader class="num" style="font-size:12px;font-weight:600">—</span>
       <span id=pulse style="width:7px;height:7px;border-radius:50%;background:#15803d;display:inline-block"></span>
-      <span style="font-size:11px;font-weight:600" class=pos>LIVE</span>
+      <span id=dataStatus style="font-size:11px;font-weight:600" class=amber>CONNECTING</span>
       <span id=clk class="num" style="font-size:11px;color:#94a3b8"></span>
     </div>
   </div>
@@ -293,12 +305,14 @@ const DESC={
  s2:'News/event book. Tiered lexicon / LLM scoring over RSS + SEC EDGAR 8-Ks, vol-normalized like every other book.',
  s3:'LLM discretionary book. Frontier PM inside a hard risk wrapper (pm_source audited). Falls back to Ollama/heuristic when budget-capped or unavailable.',
  s4:'Risk-parity ensemble of S1+S2+S3, vol-normalized to a shared 10% ex-ante target. The book the fund actually reports as its combined result.',
- s5:'Event-driven sleeve — forward shadow of the CONFIRMED 8k-drift edge (E18). Long positive-reaction / short negative-reaction 8-Ks, standalone (not in the S4 ensemble). Zero further optimization.'
+ s5:'Event-driven sleeve — forward paper test of the registered 8-K drift hypothesis. Long positive-reaction / short negative-reaction 8-Ks, standalone (not in the S4 ensemble). Profitability remains unproven.'
 };
 // the four core race books, plus S5 only once it exists in state (enabled)
 function BOOKS(s){return ['s1','s2','s3','s4'].concat((s&&s.systems&&s.systems.s5)?['s5']:[]);}
 let eqChart=null, ddChart=null, sparkChart=null, MODE='usd', RANGE='all', LAST=null, ACTIVE_BOOK=null;
 const MAX_POS_ROWS=60;
+const HTML_ESC={"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"};
+function esc(value){return String(value??'').replace(/[&<>\"']/g,ch=>HTML_ESC[ch]);}
 
 const fmt$=n=>(n<0?'−$':'$')+Math.abs(Math.round(n)).toLocaleString();
 const pct=(n,d=2)=>(n>=0?'+':'')+(n*100).toFixed(d)+'%';
@@ -347,10 +361,11 @@ function bookStats(s,k){
   dd:maxdd(dk.v), weights:sysd.weights||{}, equity};
 }
 
-function chip(text,cls){return '<span class="chip '+cls+'"><span class=dot style="background:currentColor"></span>'+text+'</span>';}
+function chip(text,cls){return '<span class="chip '+cls+'"><span class=dot style="background:currentColor"></span>'+esc(text)+'</span>';}
 function statsMap(s){const m={};for(const k of BOOKS(s))m[k]=bookStats(s,k);return m;}
 
 function render(s){
+ if(s.demo_metadata&&s.demo_metadata.synthetic===true)document.getElementById('demoBanner').dataset.demo='true';
  const nav0=s.nav0;
  const B=statsMap(s);
  const nav=B.s4.equity;
@@ -381,8 +396,8 @@ function render(s){
  const inc24=(s.data_incidents||[]).filter(i=>new Date(i.ts).getTime()>=cutoff).length;
  chips.push(chip('incidents (24h) '+inc24, inc24?'a':'gray'));
  const pmSrc=s.s3_pm_source||'heuristic';
- const pmLabel={anthropic:'anthropic (frontier)',ollama:'ollama (local)',heuristic:'heuristic (fallback)',held:'held (no new decision)'}[pmSrc]||pmSrc;
- chips.push(chip('S3 brain · '+pmLabel, (pmSrc==='anthropic'||pmSrc==='ollama'||pmSrc==='held')?'g':'a'));
+ const pmLabel={anthropic:'anthropic (frontier)',ollama:'ollama (local)',vllm:'vLLM (validated gateway)',heuristic:'heuristic (fallback)',held:'held (no new decision)'}[pmSrc]||pmSrc;
+ chips.push(chip('S3 brain · '+pmLabel, (pmSrc==='anthropic'||pmSrc==='ollama'||pmSrc==='vllm'||pmSrc==='held')?'g':'a'));
  document.getElementById('chips').innerHTML=chips.join('');
 
  // KPIs
@@ -406,7 +421,7 @@ function render(s){
   {lbl:'Days live',val:String(n),color:navy,sub:'last tick '+timeAgo(s.last_tick)}
  ];
  document.getElementById('kpis').innerHTML=kpis.map(k=>
-  '<div class="card kpi"><div class=lbl>'+k.lbl+'</div><div class=v style="color:'+k.color+'">'+k.val+'</div><div class=s>'+k.sub+'</div></div>').join('');
+  '<div class="card kpi"><div class=lbl>'+esc(k.lbl)+'</div><div class=v style="color:'+k.color+'">'+esc(k.val)+'</div><div class=s>'+esc(k.sub)+'</div></div>').join('');
 
  // legend
  document.getElementById('legend').innerHTML=BOOKS(s).map(k=>
@@ -453,14 +468,14 @@ function render(s){
 
  // S3 decision audit — three real buckets (anthropic+ollama / held / heuristic)
  const pmc=s.s3_pm_counts||{};
- const llmN=(pmc.anthropic||0)+(pmc.ollama||0), heldN=pmc.held||0, heurN=pmc.heuristic||0;
+ const llmN=(pmc.anthropic||0)+(pmc.ollama||0)+(pmc.vllm||0), heldN=pmc.held||0, heurN=pmc.heuristic||0;
  const totPm=llmN+heldN+heurN;
  const llmPct=totPm?100*llmN/totPm:0, heldPct=totPm?100*heldN/totPm:0, heurPct=totPm?100*heurN/totPm:0;
  document.getElementById('pmLlm').style.width=llmPct+'%';
  document.getElementById('pmHeld').style.width=heldPct+'%';
  document.getElementById('pmHeur').style.width=heurPct+'%';
  document.getElementById('pmTxt').textContent='anthropic '+(pmc.anthropic||0)+' · ollama '+(pmc.ollama||0)
-  +' · held '+heldN+' · heuristic '+heurN+' · data: '+(s.data_provider||'—');
+  +' · vLLM '+(pmc.vllm||0)+' · held '+heldN+' · heuristic '+heurN+' · data: '+(s.data_provider||'—');
 
  // books table
  let rows='<tr><th>Book</th><th>Equity</th><th>Ret</th><th>Vol</th><th>Sharpe</th><th>MaxDD</th><th>Pos</th><th>Gross</th></tr>';
@@ -507,14 +522,14 @@ function render(s){
  function utilRow(name,val,limit,txt){
   const u=limit>0?val/limit:0;const color=u>0.8?'#b45309':navy;
   return '<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">'
-   +'<span class=sec>'+name+'</span><span class=num style="color:#1a2233">'+txt+'</span></div>'
+   +'<span class=sec>'+esc(name)+'</span><span class=num style="color:#1a2233">'+esc(txt)+'</span></div>'
    +'<div class=util><div style="width:'+Math.min(u*100,100)+'%;background:'+color+'"></div></div></div>';
  }
  document.getElementById('limits').innerHTML=
   utilRow('Gross exposure',g4,1.0,Math.round(g4*100)+'% / 100%')
   +utilRow('Largest position |w|',maxw,0.05,(maxw*100).toFixed(1)+'% / 5%')
   +utilRow('Drawdown vs halt gate',curDD,0.15,(curDD*100).toFixed(1)+'% / 15%');
- const cell=(l,v)=>'<div><div class=lbl>'+l+'</div><div class="num navy" style="font-size:15px;font-weight:600;margin-top:3px">'+v+'</div></div>';
+ const cell=(l,v)=>'<div><div class=lbl>'+esc(l)+'</div><div class="num navy" style="font-size:15px;font-weight:600;margin-top:3px">'+esc(v)+'</div></div>';
  document.getElementById('regimeCells').innerHTML=
   cell('VIX pct (1y)',rg.vix_percentile!=null?Math.round(rg.vix_percentile*100)+'%':'—')
   +cell('Breadth',rg.breadth!=null?Math.round(rg.breadth*100)+'%':'—')
@@ -523,7 +538,7 @@ function render(s){
  // longs / shorts
  function posRows(entries,color){
   if(!entries.length)return '<div class=sec style="font-size:12px">— (cash / no positions)</div>';
-  return entries.map(([sym,w])=>'<div class=posrow><span class="sym num">'+sym+'</span>'
+  return entries.map(([sym,w])=>'<div class=posrow><span class="sym num">'+esc(sym)+'</span>'
    +'<div class=bar><div style="width:'+Math.min(Math.abs(w)/0.05,1)*100+'%;background:'+color+'"></div></div>'
    +'<span class="wpct num" style="color:'+color+'">'+(w*100).toFixed(1)+'%</span></div>').join('');
  }
@@ -543,7 +558,7 @@ function render(s){
   attrEl.innerHTML=attr.map(([sym,w,r,usd])=>{
    const pos=usd>=0, width=(Math.abs(usd)/maxAbs)*48, color=pos?gpos:gneg;
    const left=pos?50:(50-width);
-   return '<div class=posrow><span class="sym num" style="width:60px">'+sym+'</span>'
+   return '<div class=posrow><span class="sym num" style="width:60px">'+esc(sym)+'</span>'
     +'<span class=muted style="font-size:9.5px;width:34px">'+(w>=0?'LONG':'SHORT')+'</span>'
     +'<div class="bar" style="height:14px;position:relative;background:#f1f4f8"><div class=mid style="position:absolute;top:0;bottom:0;width:1px;background:#cbd5e1;left:50%"></div>'
     +'<div style="position:absolute;top:2px;bottom:2px;border-radius:2px;background:'+color+';left:'+left.toFixed(1)+'%;width:'+width.toFixed(1)+'%"></div></div>'
@@ -563,9 +578,9 @@ function render(s){
  if(!events.length){actEl.innerHTML='<div class=sec style="font-size:12px">No activity recorded yet.</div>';}
  else actEl.innerHTML='<div style="position:absolute;left:3px;top:3px;bottom:3px;width:1px;background:#e3e8ef"></div>'
   +events.slice(0,10).map(e=>'<div class=actrow><span class=adot style="background:'+e.dot+'"></span>'
-   +'<div style="display:flex;justify-content:space-between;gap:10px"><span style="font-size:12px">'+e.text+'</span>'
+   +'<div style="display:flex;justify-content:space-between;gap:10px"><span style="font-size:12px">'+esc(e.text)+'</span>'
    +'<span class=num style="font-size:10px;color:#94a3b8;white-space:nowrap">'+timeAgo(e.ts)+'</span></div>'
-   +'<div class=muted style="font-size:10.5px;margin-top:1px">'+e.tag+'</div></div>').join('');
+   +'<div class=muted style="font-size:10.5px;margin-top:1px">'+esc(e.tag)+'</div></div>').join('');
 
  // IBKR paper mirror — live broker positions vs S4 slice targets
  const ibk=s.ibkr;
@@ -582,11 +597,11 @@ function render(s){
   const book=ibk.book||{};
   const staleMin=ibk.last_refresh?((Date.now()-new Date(ibk.last_refresh))/6e4):null;
   const staleWarn=staleMin!=null && staleMin>90;
-  if(ibkHead) ibkHead.innerHTML=ibk.account
+  if(ibkHead) ibkHead.innerHTML=esc(ibk.account)
    +' · refresh '+timeAgo(ibk.last_refresh||ibk.last_sync)
    +(ibk.last_sync?' · last trade sync '+timeAgo(ibk.last_sync):'')
    +(staleWarn?' · <span class=amber>STALE</span>':'')
-   +(ibk.refresh_error?' · <span class=amber>read err: '+String(ibk.refresh_error).slice(0,40)+'</span>':'');
+   +(ibk.refresh_error?' · <span class=amber>read err: '+esc(String(ibk.refresh_error).slice(0,40))+'</span>':'');
   const kpis=[
    ['NAV', ibk.nav!=null?'$'+Math.round(ibk.nav).toLocaleString():'—'],
    ['Positions', String(ibk.n_positions??(ibk.positions||[]).length)],
@@ -596,7 +611,7 @@ function render(s){
    ['Max |drift|', book.max_abs_drift!=null?(book.max_abs_drift*100).toFixed(2)+'pp':'—'],
   ];
   if(ibkKpis) ibkKpis.innerHTML=kpis.map(([a,b])=>
-   '<div class=statcell><div class=lbl>'+a+'</div><div class=num style="font-size:14px;font-weight:600;margin-top:3px">'+b+'</div></div>').join('');
+   '<div class=statcell><div class=lbl>'+esc(a)+'</div><div class=num style="font-size:14px;font-weight:600;margin-top:3px">'+esc(b)+'</div></div>').join('');
   const rows=(ibk.positions||[]).slice(0,100);
   if(ibkBody){
    if(!rows.length) ibkBody.innerHTML='<tr><td colspan=7 class=muted style="text-align:left">No positions (flat or awaiting first refresh).</td></tr>';
@@ -604,8 +619,8 @@ function render(s){
     const drift=r.drift_w||0, dc=Math.abs(drift)>0.005?(drift>0?gpos:gneg):'#64748b';
     const mv=r.mv||0, mc=mv>=0?gpos:gneg;
     return '<tr>'
-     +'<td class=num style="font-weight:500">'+r.symbol+'</td>'
-     +'<td class=num>'+r.shares+'</td>'
+     +'<td class=num style="font-weight:500">'+esc(r.symbol)+'</td>'
+     +'<td class=num>'+esc(r.shares)+'</td>'
      +'<td class=num>'+(r.price!=null?'$'+Number(r.price).toLocaleString(undefined,{maximumFractionDigits:2}):'—')+'</td>'
      +'<td class=num style="color:'+mc+'">'+(mv>=0?'+$':'$')+Math.round(Math.abs(mv)).toLocaleString()+'</td>'
      +'<td class=num>'+((r.weight||0)*100).toFixed(2)+'%</td>'
@@ -620,7 +635,7 @@ function render(s){
    else ibkFills.innerHTML=fills.map(f=>{
     const side=f.side||'';
     const col=/BOT|BUY/i.test(side)?gpos:gneg;
-    return '<span style="color:'+col+'">'+side+' '+f.shares+' '+f.symbol+' @ '+Number(f.price).toFixed(2)+'</span>'
+    return '<span style="color:'+col+'">'+esc(side)+' '+esc(f.shares)+' '+esc(f.symbol)+' @ '+Number(f.price).toFixed(2)+'</span>'
      +' <span class=muted>'+timeAgo(f.time)+'</span>';
    }).join(' · ');
   }
@@ -649,7 +664,7 @@ function render(s){
    color:'#1a2233',dot:'#22a355'});
  }
  document.getElementById('ops').innerHTML=opsRows.map(o=>
-  '<div class=opsrow><span class=sec>'+o.name+'</span><span style="display:inline-flex;align-items:center;gap:6px" class="num" style="color:'+o.color+'"><span class=dot style="background:'+o.dot+'"></span>'+o.val+'</span></div>').join('');
+  '<div class=opsrow><span class=sec>'+esc(o.name)+'</span><span style="display:inline-flex;align-items:center;gap:6px" class="num" style="color:'+o.color+'"><span class=dot style="background:'+o.dot+'"></span>'+esc(o.val)+'</span></div>').join('');
 
  buildCharts(s,B);
  const p=document.getElementById('pulse');p.style.opacity='.3';setTimeout(()=>p.style.opacity='1',300);
@@ -698,7 +713,7 @@ function openBook(k){
   {lbl:'Gross / names',val:Math.round(gross(B.weights)*100)+'% / '+Object.keys(B.weights).length,color:navy},
  ];
  document.getElementById('shStats').innerHTML=stats.map(st=>
-  '<div class=statcell><div class=lbl>'+st.lbl+'</div><div class="num" style="font-size:16px;font-weight:600;margin-top:3px;color:'+st.color+'">'+st.val+'</div></div>').join('');
+  '<div class=statcell><div class=lbl>'+esc(st.lbl)+'</div><div class="num" style="font-size:16px;font-weight:600;margin-top:3px;color:'+st.color+'">'+esc(st.val)+'</div></div>').join('');
 
  const ents=Object.entries(B.weights).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
  const posHdr=document.getElementById('shPosHdr');
@@ -712,7 +727,7 @@ function openBook(k){
   const shown=ents.slice(0,MAX_POS_ROWS).sort((a,b)=>b[1]-a[1]);
   posEl.innerHTML=shown.map(([sym,w])=>{
    const pos=w>=0,color=pos?gpos:gneg,width=Math.min(Math.abs(w)/0.05,1)*48,left=pos?50:(50-width);
-   return '<div class=posrow><span class="sym num" style="width:70px">'+sym+'</span>'
+   return '<div class=posrow><span class="sym num" style="width:70px">'+esc(sym)+'</span>'
     +'<div class="bar" style="height:12px;position:relative;background:#f1f4f8"><div style="position:absolute;top:0;bottom:0;width:1px;background:#cbd5e1;left:50%"></div>'
     +'<div style="position:absolute;top:2px;bottom:2px;border-radius:2px;background:'+color+';left:'+left.toFixed(1)+'%;width:'+width.toFixed(1)+'%"></div></div>'
     +'<span class="wpct num" style="color:'+color+'">'+(w*100).toFixed(1)+'%</span></div>';
@@ -733,9 +748,25 @@ function closeBook(){ACTIVE_BOOK=null;document.getElementById('sheet').classList
 document.getElementById('shClose').onclick=closeBook;
 document.getElementById('sheetBackdrop').onclick=closeBook;
 
+function dataStatus(text,healthy){
+ if(document.getElementById('demoBanner').dataset.demo==='true'){
+  text=(text==='LIVE'||text==='STALE')?'DEMO · SYNTHETIC':'DEMO · '+text;healthy=false;
+ }
+ const status=document.getElementById('dataStatus');status.textContent=text;
+ status.className=healthy?'pos':'amber';
+ document.getElementById('pulse').style.background=healthy?gpos:'#b45309';
+}
 async function load(){
- try{LAST=await(await fetch('/api/state',{cache:'no-store'})).json();}catch(e){return;}
- render(LAST);
+ try{
+  const response=await fetch('/api/state',{cache:'no-store',signal:AbortSignal.timeout(10000)});
+  if(!response.ok)throw new Error('state unavailable');
+  const state=await response.json();
+  if(!state||typeof state.nav0!=='number'||!Number.isFinite(state.nav0)||state.nav0<=0||!state.systems)
+   throw new Error('state invalid');
+  render(state);LAST=state;
+  const age=state.last_tick?(Date.now()-new Date(state.last_tick).getTime()):Infinity;
+  dataStatus(Number.isFinite(age)&&age>=-60000&&age<=90*60000?'LIVE':'STALE',Number.isFinite(age)&&age>=-60000&&age<=90*60000);
+ }catch(e){dataStatus(LAST?'OFFLINE · LAST SNAPSHOT':'DATA UNAVAILABLE',false);}
 }
 function setToggle(groupIds,onId){groupIds.forEach(id=>document.getElementById(id).classList.toggle('on',id===onId));}
 document.getElementById('mUsd').onclick=()=>{MODE='usd';setToggle(['mUsd','mPct'],'mUsd');if(LAST)buildCharts(LAST,statsMap(LAST));};
@@ -748,33 +779,138 @@ clk();setInterval(clk,1000);load();setInterval(load,60000);
 </script></body></html>"""
 
 
-def make_handler(state_path: Path):
-    class H(BaseHTTPRequestHandler):
-        def log_message(self, *a):
-            pass
+def _dashboard_csp() -> str:
+    inline = re.search(r"<script>\n(.*?)</script>", _HTML, re.S).group(1)
+    digest = base64.b64encode(hashlib.sha256(("\n" + inline).encode()).digest()).decode()
+    return (
+        "default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com 'sha256-"
+        + digest
+        + "'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; "
+        "frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+    )
 
-        def _send(self, body: bytes, ctype: str):
-            self.send_response(200)
+
+def make_handler(
+    state_path: Path,
+    *,
+    username: str = "fund",
+    password: str | None = None,
+    allowed_hosts: set[str] | None = None,
+    demo_mode: bool = False,
+):
+    html = _HTML
+    if demo_mode:
+        html = html.replace('id=demoBanner data-demo="false"', 'id=demoBanner data-demo="true"')
+        html = html.replace(">CONNECTING</span>", ">DEMO · SYNTHETIC</span>")
+        html = html.replace("PAPER · PROOF PHASE", "SYNTHETIC · UI DEMO")
+
+    class H(BaseHTTPRequestHandler):
+        server_version = "FundDashboard"
+        sys_version = ""
+
+        def setup(self):
+            super().setup()
+            self.connection.settimeout(10)
+
+        def log_message(self, *a):
+            pass  # Request headers/paths can contain credentials; do not log them.
+
+        def _send(self, body: bytes, ctype: str, status: int = 200, *, challenge=False):
+            self.send_response(status)
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Referrer-Policy", "no-referrer")
+            self.send_header("X-Frame-Options", "DENY")
+            self.send_header("Content-Security-Policy", _dashboard_csp())
+            if challenge:
+                self.send_header(
+                    "WWW-Authenticate", 'Basic realm="Fund dashboard", charset="UTF-8"'
+                )
             self.end_headers()
             self.wfile.write(body)
 
+        def _authorized(self):
+            if password is None:
+                return True
+            raw = self.headers.get("Authorization", "")
+            try:
+                scheme, encoded = raw.split(" ", 1)
+                supplied = base64.b64decode(encoded, validate=True)
+            except (ValueError, TypeError):
+                return False
+            expected = (username + ":" + password).encode()
+            return scheme.lower() == "basic" and hmac.compare_digest(supplied, expected)
+
         def do_GET(self):
-            if self.path.startswith("/api/state"):
-                data = state_path.read_bytes() if state_path.exists() else b"{}"
-                self._send(data, "application/json")
+            if allowed_hosts is not None:
+                try:
+                    hostname = urlsplit("//" + self.headers.get("Host", "")).hostname
+                except ValueError:
+                    hostname = None
+                if hostname not in allowed_hosts:
+                    self._send(b'{"error":"host_not_allowed"}', "application/json", 403)
+                    return
+            if not self._authorized():
+                self._send(
+                    b'{"error":"authentication_required"}', "application/json", 401, challenge=True
+                )
+                return
+            try:
+                path = urlsplit(self.path).path
+            except ValueError:
+                self._send(b'{"error":"invalid_path"}', "application/json", 400)
+                return
+            if path == "/api/state":
+                try:
+                    data = state_path.read_bytes()
+                    parsed = json.loads(data)
+                    if not isinstance(parsed, dict):
+                        raise ValueError("state must be an object")
+                except (OSError, ValueError):
+                    self._send(b'{"error":"state_unavailable"}', "application/json", 503)
+                else:
+                    self._send(data, "application/json")
+            elif path == "/":
+                self._send(html.encode(), "text/html; charset=utf-8")
             else:
-                self._send(_HTML.encode(), "text/html; charset=utf-8")
+                self._send(b'{"error":"not_found"}', "application/json", 404)
 
     return H
 
 
-def start_dashboard(state_path: str = "data/state.json", port: int = 8080,
-                    host: str = "0.0.0.0") -> ThreadingHTTPServer:
-    # Bound publicly on :8080 (user request). No auth — treat as paper-only.
-    server = ThreadingHTTPServer((host, port), make_handler(Path(state_path)))
+def start_dashboard(
+    state_path: str = "data/state.json",
+    port: int = 8080,
+    host: str = "127.0.0.1",
+    *,
+    demo_mode: bool = False,
+) -> ThreadingHTTPServer:
+    password = os.environ.get("FUND_DASHBOARD_PASSWORD")
+    username = os.environ.get("FUND_DASHBOARD_USER", "fund")
+    try:
+        local = ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        local = host.lower() == "localhost"
+    if not local and (not password or len(password) < 16):
+        raise ValueError(
+            "Remote dashboard requires FUND_DASHBOARD_PASSWORD of at least 16 characters; use TLS or an SSH tunnel"
+        )
+    if not username or ":" in username:
+        raise ValueError("Invalid dashboard username")
+    allowed_hosts = {"localhost", "127.0.0.1", "::1"} if local else None
+    server = ThreadingHTTPServer(
+        (host, port),
+        make_handler(
+            Path(state_path),
+            username=username,
+            password=password,
+            allowed_hosts=allowed_hosts,
+            demo_mode=demo_mode,
+        ),
+    )
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    print(f"dashboard on http://{host}:{port}")
+    print(f"dashboard listening on {host}:{server.server_address[1]}")
     return server

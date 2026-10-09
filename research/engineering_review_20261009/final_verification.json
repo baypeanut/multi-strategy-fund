@@ -1,0 +1,31 @@
+{
+  "checked_at": "2026-10-09T18:32:51.790006+00:00",
+  "environment": "macOS / Python 3.14.0",
+  "tests_command": "venv/bin/python -m pytest -q",
+  "passed": 870,
+  "skipped": 1,
+  "failed": 0,
+  "duration_seconds": 35.7,
+  "skip_reason": "weekend scenario covered separately",
+  "pip_check": "passed",
+  "ruff_execution_defect_check": "passed",
+  "git_diff_check": "passed",
+  "trading_services_deployed": false,
+  "protocol_parameters_changed": false,
+  "risk_scope": "Invalid-input rejection and operational hardening; normal valid execution retained",
+  "full_stack_matrix_evidence": "../engineering_20261009/verification.json",
+  "ml_review_evidence": "ml_scope.json",
+  "gpu_evidence": "../model_serving_20261009/gpu_verification_after_restart.json",
+  "benchmark_evidence": "../model_serving_20261009/benchmark_gpu_actual.json",
+  "note": "These are code/serving checks, not proof of trading profitability.",
+  "cloud_cleanup_evidence": "../model_serving_20261009/cloud_cleanup.json",
+  "documentation_link_check": "4 primary review documents; all local links resolve",
+  "subsequent_budget_fixture_check": {
+    "checked_at": "2026-10-09T18:53:49.926594+00:00",
+    "passed": 67,
+    "failed": 0,
+    "duration_seconds": 1.87,
+    "scope": "Four test modules with scoped mock budget fixtures and fresh on-disk public posture check; no runtime/config changes",
+    "independent_ml_review": "GO"
+  }
+}

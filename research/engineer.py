@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import ast
 import difflib
+import hashlib
 import json
 import os
 import re
@@ -66,9 +67,14 @@ MAX_TOTAL_CHARS = 300_000
 # _COPY_IGNORE matches at ANY depth (caches, secrets); _COPY_IGNORE_TOP only
 # at the repo root — "data" must NOT match core/data/ (that broke every
 # sandbox collection on night one: ModuleNotFoundError core.data).
-_COPY_IGNORE = {"venv", "__pycache__", ".pytest_cache", ".git", ".env",
-                ".claude"}
+_COPY_IGNORE = {"venv", ".venv", "__pycache__", ".pytest_cache", ".git", ".env",
+                ".claude", "build", "dist"}
 _COPY_IGNORE_TOP = {"data", "logs", "mulkusa-site"}
+
+
+def _ignored_component(name: str) -> bool:
+    """Exclude environments and generated packaging metadata at any depth."""
+    return name in _COPY_IGNORE or name.endswith(".egg-info")
 
 
 def _autonomy() -> dict:
@@ -459,7 +465,7 @@ def _copy_repo(dst: Path) -> None:
             # uid is exactly the sandbox's own read capability.
             unreadable = not os.access(full, os.R_OK) or (
                 full.is_dir() and not os.access(full, os.X_OK))
-            if (n in _COPY_IGNORE or ".bak" in n or n.endswith(".pkl")
+            if (_ignored_component(n) or ".bak" in n or n.endswith(".pkl")
                     # E46: logs, at ANY depth. _COPY_IGNORE_TOP excluded the
                     # logs/ DIRECTORY, but stale runtime logs sat in the repo
                     # ROOT — 271MB of them — and every sandbox copied all of it
@@ -563,7 +569,14 @@ def _timeout_args() -> list[str]:
 
 # ---------------------------------------------------------------- context --
 _CTX_DIRS = ["runtime", "core", "systems", "research", "backtest", "dashboard",
-             "scripts", "config", "tests"]
+             "scripts", "config", "tests", "serving", "deploy"]
+_CTX_FILENAMES = {"Dockerfile"}
+# Read-only copies collected while diagnosing a separate ETF paper project.
+# These are forensic evidence, not modules imported/executed by this fund.
+# Index them explicitly by exact path/hash/size rather than pretending that
+# archived sibling-project source is part of this fund's executing source.
+# Never generalize this exclusion to application source or arbitrary research.
+_FORENSIC_COPY_DIRS = ("research/status_20261007/etf-evidence",)
 # 2026-08-03: 60_000 cut the planner's two hottest files out of its own view of
 # the tree — runtime/live.py (79,053 chars: tick() and the mirror session gate)
 # and research/engineer.py (83,759: _run_pipeline) — for four consecutive
@@ -600,7 +613,14 @@ _TAIL_CHARS = {
 # 2026-09-19: the current source tree exceeds 1.2M and evicts watchdog tests.
 # Preserve the full reviewed tree with modest headroom; this does not enable
 # the disabled engineer lane or issue any model call.
-_MAX_CTX_CHARS = 1_350_000
+# 2026-10-09: measured pre-change context was 1,448,967 characters. It included
+# a 46,201-character forensic copy while omitting the NEW serving/deploy trees
+# entirely. Those trees are now visible; copied evidence has an explicit index.
+# 1.65M keeps the reviewed current source and modest growth headroom. This is a
+# character heuristic against the lane's existing 1M-token model assumption,
+# NOT a measured tokenizer count or proof of any provider's context capacity.
+# Overflow still refuses the call, with no application-source eviction.
+_MAX_CTX_CHARS = 1_650_000
 
 
 def _curve_stats(series: list) -> dict | None:
@@ -876,13 +896,14 @@ def build_context() -> str:
                      + json.dumps(hist[-15:], indent=1))
 
     src: list[str] = []
+    forensic: list[dict] = []
     for d in _CTX_DIRS:
         base = ROOT / d
         if not base.exists():
             continue
         for f in sorted(base.rglob("*")):
-            if (f.is_dir() or f.suffix not in ALLOWED_EXT
-                    or any(part in _COPY_IGNORE for part in f.parts)
+            if (f.is_dir() or (f.suffix not in ALLOWED_EXT and f.name not in _CTX_FILENAMES)
+                    or any(_ignored_component(part) for part in f.parts)
                     # E32: the proposals store holds FULL COPIES of files from
                     # past proposals (728KB, 30 blobs). They are duplicates of
                     # code already in this context — and they were crowding out
@@ -896,6 +917,17 @@ def build_context() -> str:
             except (OSError, UnicodeDecodeError):
                 continue
             rel = f.relative_to(ROOT)
+            if any(rel == Path(prefix) or Path(prefix) in rel.parents
+                   for prefix in _FORENSIC_COPY_DIRS):
+                try:
+                    raw = f.read_bytes()
+                except OSError:
+                    raise ValueError(f"Forensic evidence inventory cannot read {rel}") from None
+                forensic.append({"path": str(rel), "sha256": hashlib.sha256(raw).hexdigest(),
+                                 "bytes": len(raw), "characters": len(text),
+                                 "scope": "archived copied evidence; not executing fund source",
+                                 "inline_source": False})
+                continue
             tail = _TAIL_CHARS.get(str(rel))
             if tail and len(text) > tail:
                 # tail, not head: the newest entry is the one that matters
@@ -910,6 +942,11 @@ def build_context() -> str:
                           f"{len(text):,} — this file is TRUNCATED]")
             blob = f"\n--- FILE: {rel} ---\n{text}"
             src.append(blob)
+    if forensic:
+        parts.append("=== FORENSIC COPY INVENTORY (content not inlined) ===\n"
+                     "These archived sibling-project copies are not executing fund source. "
+                     "Full contents remain at the listed paths; the inventory does not imply "
+                     "their source has been reviewed.\n" + json.dumps(forensic, indent=1))
     parts.append("=== SOURCE TREE ===" + "".join(src))
     context = "\n\n".join(parts)
     if len(context) > _MAX_CTX_CHARS:
@@ -1521,7 +1558,8 @@ def baseline_is_green(timeout: int = 900) -> dict:
     Deliberately NOT dependent on anyone remembering to run a script. The
     parity script exists for humans; this is the machine checking itself.
     """
-    infra = _timeout_infra_note() if "_timeout_infra_note" in globals() else ""
+    timeout_note = globals().get("_timeout_infra_note")
+    infra = timeout_note() if callable(timeout_note) else ""
     tmp_root_dir = _sandbox_tmp_root()
     with tempfile.TemporaryDirectory(prefix="baseline_sbx_",
                                      dir=tmp_root_dir) as tmp:

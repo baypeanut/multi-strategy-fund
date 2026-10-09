@@ -1,0 +1,17 @@
+{
+  "verified_at": "2026-10-09T18:40:07.324354+00:00",
+  "cluster_deleted": true,
+  "remaining_demo_gpu_nodes": 0,
+  "model_cache_disk_deleted": true,
+  "image_repository_deleted": true,
+  "dedicated_node_service_account_deleted": true,
+  "gpu_billing_resource_cleanup_verified": true,
+  "budget_usd": 20,
+  "elapsed_wall_hours_including_provisioning_and_cleanup": 0.9095,
+  "conservative_resource_hourly_allowance_usd": 1.1,
+  "build_storage_network_allowance_usd": 5,
+  "conservative_cost_estimate_usd": 6.0,
+  "invoice_cost_verified": false,
+  "cost_note": "Conservative engineering estimate, not a provider invoice. Shared project, billing, enabled APIs, and approved unused quota were preserved.",
+  "watchdog_note": "Local watchdog fallback; cloud resource deletion was explicitly verified. It is not a provider-enforced TTL."
+}

@@ -1,0 +1,30 @@
+{
+  "checked_at": "2026-10-09T17:54:31.328275+00:00",
+  "preflight_passed": true,
+  "gpu_deployment_verified": false,
+  "nodes": [
+    {
+      "ready": true,
+      "unschedulable": false,
+      "architecture": "amd64",
+      "os": "linux",
+      "allocatable_gpu": 1,
+      "requested_gpu": 0,
+      "gpu_product_label": null,
+      "time_slicing_replicas_label": null,
+      "taints": [],
+      "node_index": 0
+    }
+  ],
+  "storage_classes": [
+    "dynamic-rwo",
+    "premium-rwo",
+    "standard",
+    "standard-rwo"
+  ],
+  "problems": [],
+  "limitations": [
+    "Scheduler acceptance, driver compatibility, CUDA hardware, PVC binding and NetworkPolicy enforcement require live verification",
+    "Advertised GPU resource is not evidence of physical allocation; time-slicing labels may indicate shared compute"
+  ]
+}

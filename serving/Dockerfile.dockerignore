@@ -1,0 +1,10 @@
+**
+!requirements-serving.txt
+!core/
+!core/__init__.py
+!core/llm/
+!core/llm/*.py
+!serving/
+!serving/*.py
+!serving/Dockerfile
+!serving/Dockerfile.dockerignore

@@ -1,0 +1,12 @@
+{
+  "checked_at_utc": "2026-10-09T17:34:44.220323+00:00",
+  "manifest_validation": "YAML loaded; kustomize render succeeded; 11 offline contract tests passed",
+  "client_dry_run": "unavailable: kubectl requires API discovery and no configured cluster was reachable at this check",
+  "gpu_deployment_verified": false,
+  "vllm_image": "vllm/vllm-openai:v0.31.0-cu129@sha256:ff29e51a9457f191deb332b96fa6440584fa941aa2a548449b604e2b1e5e1eeb",
+  "image_digest_source": "https://registry-1.docker.io/v2/vllm/vllm-openai/manifests/v0.31.0-cu129",
+  "model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "model_revision": "989aa7980e4cf806f80c7fef2b1adb7bc71aa306",
+  "model_revision_source": "https://huggingface.co/api/models/Qwen/Qwen2.5-1.5B-Instruct",
+  "note": "Preparation snapshot only; live deploy/verify evidence must be generated separately. No cluster mutations were performed by this preparation task."
+}

@@ -329,11 +329,27 @@ def test_the_remaining_cost_and_spend_caps_are_what_was_registered():
     cap raised a hundredfold, both with the suite green. The equity half-spread
     and impact coefficient were already caught, so the cost surface was half
     pinned."""
-    from core.config import CONFIG
+    from core.config import load_config
 
-    assert CONFIG["costs"]["crypto"]["commission_bps"] == 5.0, "crypto taker fee"
-    assert CONFIG["llm"]["max_scorer_calls_per_day"] == 400, "S2 headline scores/day"
-    assert CONFIG["llm"]["max_pm_calls_per_day"] == 16, "S3 decisions/day"
+    # Inspect on-disk defaults: suite safety fixtures patch the shared singleton.
+    config = load_config()
+    assert config["costs"]["crypto"]["commission_bps"] == 5.0, "crypto taker fee"
+    scorer_cap = config["llm"]["max_scorer_calls_per_day"]
+    pm_cap = config["llm"]["max_pm_calls_per_day"]
+    if scorer_cap == 0 or pm_cap == 0:
+        # A fresh public clone may disable all integrations; partial disabling
+        # must not waive the registered operating protocol below.
+        assert scorer_cap == pm_cap == 0, "both public model budgets must be zero"
+        assert config["llm"]["enabled"] is False
+        assert config["ibkr"]["enabled"] is False
+        assert config["ibkr"]["execute"] is False
+        assert config["watchdog"]["auto_restart_gateway"] is False
+        for flag in ("engineer_enabled", "engineer_pipeline", "auto_apply",
+                     "auto_commit", "auto_restart"):
+            assert config["agent_autonomy"][flag] is False, flag
+    else:
+        assert scorer_cap == 400, "S2 headline scores/day"
+        assert pm_cap == 16, "S3 decisions/day"
 
 
 def test_the_cost_fallbacks_are_one_definition_not_three():

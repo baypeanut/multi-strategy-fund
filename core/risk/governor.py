@@ -16,7 +16,9 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
+from numbers import Real
 
+import numpy as np
 import pandas as pd
 
 Z_95 = 1.645  # one-sided 95% normal quantile
@@ -64,6 +66,47 @@ class RiskGovernor:
         actions: list[str] = []
         risk_scale = 1.0
 
+        def halt_invalid(reason: str) -> GovernorDecision:
+            # Multiplying NaN/inf by zero is still NaN. Build actual finite
+            # cash targets, which the runtime's existing halt latch accepts.
+            index = proposed.index if isinstance(proposed, pd.Series) else None
+            return GovernorDecision(pd.Series(0.0, index=index, dtype=float),
+                                    True, 0.0, [f"invalid {reason} -> HALT, go cash"])
+
+        def finite_number(value) -> bool:
+            try:
+                return isinstance(value, Real) and not isinstance(value, bool) and math.isfinite(value)
+            except (TypeError, ValueError, OverflowError):
+                return False
+
+        if (not isinstance(proposed, pd.Series) or not proposed.index.is_unique
+                or not all(finite_number(value) for value in proposed)):
+            return halt_invalid("proposed weights")
+        if not finite_number(applied_drawdown_scale) or applied_drawdown_scale < 0:
+            return halt_invalid("applied drawdown scale")
+        if equity_curve is not None and (not isinstance(equity_curve, pd.Series)
+                                        or not all(finite_number(value) and value > 0 for value in equity_curve)):
+            return halt_invalid("equity history")
+        if equity_curve is not None and isinstance(equity_curve.index, pd.DatetimeIndex):
+            if (equity_curve.index.hasnans or not equity_curve.index.is_unique
+                    or not equity_curve.index.is_monotonic_increasing):
+                return halt_invalid("equity timestamps")
+
+        C = None
+        common = proposed.index[:0]
+        if cov_daily is not None and not proposed.empty and proposed.abs().sum() > 0:
+            if (not isinstance(cov_daily, pd.DataFrame) or not cov_daily.index.is_unique
+                    or not cov_daily.columns.is_unique):
+                return halt_invalid("covariance")
+            common = proposed.index.intersection(cov_daily.index)
+            relevant = cov_daily.reindex(index=common, columns=common)
+            if not all(pd.api.types.is_numeric_dtype(dtype) and not pd.api.types.is_complex_dtype(dtype)
+                       for dtype in relevant.dtypes):
+                return halt_invalid("covariance")
+            C = relevant.to_numpy(dtype=float)
+            if not np.isfinite(C).all():
+                return halt_invalid("covariance")
+
         # --- drawdown / daily-loss circuit breakers (on DAILY closes) ---
         if equity_curve is not None and len(equity_curve.dropna()) >= 2:
             daily = resample_daily(equity_curve)
@@ -91,10 +134,13 @@ class RiskGovernor:
 
         # --- parametric VaR limit ---
         if cov_daily is not None and not w.empty:
-            common = w.index.intersection(cov_daily.index)
             wv = w.reindex(common).fillna(0.0).to_numpy()
-            C = cov_daily.reindex(index=common, columns=common).to_numpy()
-            daily_vol = math.sqrt(max(wv @ C @ wv, 0.0))
+            if C is None:  # no proposed risk; covariance is irrelevant to a cash book
+                C = np.empty((0, 0))
+            variance = float(wv @ C @ wv)
+            if not math.isfinite(variance):
+                return halt_invalid("portfolio variance")
+            daily_vol = math.sqrt(max(variance, 0.0))
             var95 = Z_95 * daily_vol
             if var95 > self.var_limit_95 and var95 > 0:
                 scale = self.var_limit_95 / var95

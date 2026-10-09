@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "started_at_utc": "2026-10-09T17:43:37.385913+00:00",
+  "evidence_kind": "LOCAL_GATEWAY_CONTAINER_ONLY",
+  "interpretation": "Local amd64 gateway container checks, not vLLM/GPU/Kubernetes/model execution evidence.",
+  "gpu_execution_verified": false,
+  "kubernetes_deployment_verified": false,
+  "model_generation_performed": false,
+  "credential_source": "ephemeral generated test-only key",
+  "checks": {
+    "liveness": {
+      "observed_http_status": 200,
+      "expected_http_status": 200,
+      "passed": true
+    },
+    "unavailable_backend_readiness": {
+      "observed_http_status": 503,
+      "expected_http_status": 503,
+      "passed": true
+    },
+    "unauthenticated_info": {
+      "observed_http_status": 401,
+      "expected_http_status": 401,
+      "passed": true
+    },
+    "unauthenticated_prompt_before_validation": {
+      "observed_http_status": 401,
+      "expected_http_status": 401,
+      "passed": true
+    },
+    "authenticated_invalid_request": {
+      "observed_http_status": 422,
+      "expected_http_status": 422,
+      "passed": true
+    },
+    "authenticated_info": {
+      "observed_http_status": 200,
+      "expected_http_status": 200,
+      "passed": true
+    },
+    "container_runtime": {
+      "observed": {
+        "uid": 10001,
+        "gid": 10001,
+        "tmpfs_writable": true,
+        "app_write_denied": true
+      },
+      "passed": true
+    },
+    "runtime_constraints": {
+      "passed": true
+    }
+  },
+  "container_cleanup": true,
+  "image": {
+    "tag": "fund-model-gateway:20261009",
+    "id": "sha256:43e8033415a3df5bd1b57d920487acfdd28fa34fa4c161b4e7ca05403944146d",
+    "architecture": "amd64",
+    "os": "linux",
+    "configured_user": "10001:10001",
+    "created": "2026-10-09T17:41:31.822576217Z"
+  },
+  "container_id": "60c870a655559dc8daf4262a70129f99275858d4e37f2ecfc266ece7e946c660",
+  "port_binding": "127.0.0.1:49370",
+  "dependency_versions": {
+    "fastapi": "0.143.0",
+    "uvicorn": "0.54.0",
+    "httpx": "0.28.1",
+    "pydantic": "2.14.0",
+    "prometheus-client": "0.26.0"
+  },
+  "python_version": "3.12.12",
+  "runtime_constraints": {
+    "ReadonlyRootfs": true,
+    "CapDrop": [
+      "ALL"
+    ],
+    "SecurityOpt": [
+      "no-new-privileges:true"
+    ],
+    "Tmpfs": {
+      "/tmp": "rw,noexec,nosuid,size=16777216"
+    },
+    "NanoCpus": 1000000000,
+    "Memory": 536870912
+  },
+  "all_checks_passed": true,
+  "completed_at_utc": "2026-10-09T17:43:39.231543+00:00"
+}

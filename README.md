@@ -1,76 +1,153 @@
 # Multi-Strategy Systematic Fund
 
-A Python paper-trading research system for comparing deterministic strategies with LLM-assisted decisions. Agents propose portfolios, design experiments, and critique results; deterministic code applies risk limits, models costs, and records performance.
+A Python paper-trading research system that separates LLM proposals from
+deterministic execution. Research agents propose experiments and critique
+results; code validates outputs, enforces risk limits, models costs and records
+performance. Profitability and a model-driven trading advantage remain unproven.
 
-This is an experimental research project. **Profitability and a model-driven trading advantage remain unproven.** The [quant audit](QUANT_AUDIT_2026-09-10.md) and [research corrections](research/CORRECTIONS.md) document timing, accounting, and evaluation limitations.
+The repository includes five strategy books, an authenticated model-serving
+API, GPU Kubernetes manifests, concurrent inference measurements and a read-only
+monitoring dashboard. Live accounts, credentials and operational records are
+excluded from the package and public repository.
 
-## What is in this repository
+## Start with the offline demo
 
-- Five strategy books sharing data, a paper broker, and a risk governor.
-- Structured LLM portfolio proposals with deterministic validation and risk controls.
-- A research harness with preregistered specifications, walk-forward evaluation, multiple-testing controls, and a one-use lockbox.
-- Paper execution, a state ledger, a monitoring dashboard, and operational checks.
-- Offline tests for strategy, accounting, risk, research, and runtime behavior.
+Use Python 3.12 or 3.14. No cloud, broker, market-data or model credentials are
+needed for the tests or dashboard demo.
 
-The checked-in model clients use **Anthropic, Ollama, and a heuristic fallback**, with the selected source recorded for attribution. The separate vLLM/GPU Kubernetes deployment described in my portfolio is **not included in this public source tree**. This repository does not reproduce that deployment or contain its inference benchmarks.
+```sh
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e '.[dev,serving]'
+python -m pytest
+ruff check core systems backtest runtime dashboard scripts research tests serving
+python -m build
+fund-dashboard-demo --port 8080
+```
+
+Open http://127.0.0.1:8080 for the dashboard. Its demo banner and data are
+explicitly synthetic; they do not show market results. The normal operational
+entry point is `fund-paper --help`. Review configuration and deployment notes
+before starting it: it can read configured integrations and update paper state.
+
+CI runs offline tests, defect checks and package builds on Python 3.12 and 3.14.
+The source distribution and wheel use an explicit package allowlist. Runtime
+and direct development dependencies are pinned; all transitive dependencies
+are not locked, so use the retained environment/image evidence when reproducing
+a measured run. Deployment and cloud tests do not purchase resources.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    Data[Prices, news, filings, macro data] --> Books[Five strategy books]
-    Model[LLM proposals] --> Wrapper[Deterministic validation]
-    Wrapper --> Books
-    Books --> Risk[Risk governor]
+    Data[Prices, news, filings and macro] --> S1[S1 deterministic control]
+    Data --> S2[S2 news and events]
+    Data --> Brief[Portfolio briefing]
+    Model[Configured LLM] --> Wrapper[Schema and risk wrapper]
+    Brief --> Model
+    Wrapper --> S3[S3 constrained proposals]
+    S1 --> S4[S4 ensemble]
+    S2 --> S4
+    S3 --> S4
+    Data --> S5[S5 event drift]
+    S1 --> Risk[Risk governor and final limits]
+    S2 --> Risk
+    S3 --> Risk
+    S4 --> Risk
+    S5 --> Risk
     Risk --> Broker[Paper broker and cost model]
-    Broker --> Ledger[Ledger and evaluation]
-    Ledger --> UI[Monitoring dashboard]
-    Research[Research director and referee] --> Specs[Preregistered experiments]
-    Specs --> Eval[Deterministic evaluation]
+    Broker --> Ledger[Self financing ledger]
+    Ledger --> UI[Read only dashboard]
+    Model -. optional private API .-> Gateway[Validated serving gateway]
+    Gateway --> GPU[vLLM on NVIDIA GPU]
+    GPU --- PVC[Persistent model cache]
 ```
 
-| Book | Approach | Useful code |
+| Book | Approach | Implementation |
 | --- | --- | --- |
-| S1 Quant | Rules-based ranking and portfolio construction, the control | [`systems/s1_quant`](systems/s1_quant) |
-| S2 News | Headline/event scoring with deterministic and model-assisted paths | [`systems/s2_news`](systems/s2_news) |
-| S3 Discretionary | Structured model proposals inside a deterministic wrapper | [`systems/s3_llm`](systems/s3_llm) |
-| S4 Combined | Combination of the first three books | [`systems/s4_combined`](systems/s4_combined) |
-| S5 Event | Post-filing event research; validation remains under review | [`systems/s5_event`](systems/s5_event) |
+| S1 Quant | Deterministic ranking and portfolio construction; the control | [S1](systems/s1_quant) |
+| S2 News | Lexicon and configured model-assisted headline/event scoring | [S2](systems/s2_news) |
+| S3 Discretionary | Structured portfolio proposals inside deterministic controls | [S3](systems/s3_llm) |
+| S4 Combined | Ensemble of the first three books | [S4](systems/s4_combined) |
+| S5 Event | Post-filing event research; validation remains under review | [S5](systems/s5_event) |
 
-For an engineering review, start with [`systems/s3_llm/pm.py`](systems/s3_llm/pm.py), [`systems/s3_llm/wrapper.py`](systems/s3_llm/wrapper.py), [`core/risk`](core/risk), and [`tests/conftest.py`](tests/conftest.py). They show the separation between a model proposal, the controls that constrain it, and tests that avoid operating live services.
+The default `llm.provider: auto` preserves the Anthropic/Ollama/deterministic
+fallback chain. The optional `vllm` provider uses the validated gateway and
+records failed calls, fallback source and token usage. Neither a model response
+nor its confidence can bypass risk controls or send a broker order. Switching
+a measured paper book to another model requires a separately registered trial.
 
-## Run the offline tests
+The public sample configuration disables broker execution, runtime model-call
+budgets and automatic apply/commit/restart operations. These are explicit
+fresh-clone safety defaults, not the settings of the retained GPU benchmark.
+Enabling integrations requires deliberate configuration and credentials.
 
-Use Python 3.11 or newer. From a fresh clone:
+## Model serving and GPU evidence
 
-```sh
-python3 -m venv venv
-source venv/bin/activate
-python -m pip install -r requirements.txt
-python -m pytest tests/ -q
-```
+The FastAPI gateway implements authentication, input/context/output bounds,
+fixed JSON contracts, deadlines, cancellation, explicit overload responses and
+Prometheus metrics. Its single-worker admission limit is eight requests. It has
+no broker credentials, order endpoint or fund-ledger mount.
 
-Verified on October 9, 2026 in a clean local checkout: **656 passed, 2 skipped**. This was an offline test run, not a live deployment or performance benchmark.
+The Kubernetes service pins vLLM 0.31.0 and the Apache-2.0
+Qwen2.5-1.5B-Instruct model revision. It requests one NVIDIA GPU, mounts a 20 GiB
+persistent cache, gates readiness on actual model availability and keeps both
+services private. This small model is a serving demonstrator, not a validated
+trading decision-maker.
 
-The test fixtures disable live broker access, paid-model work, service restarts, and outbound notifications, and redirect mutable proposal records. No real credentials are needed. Run the suite in a clean checkout without production environment files. The dependencies are not fully pinned, so a fresh install may differ from a previously verified environment.
+On October 9, 2026, an isolated GKE deployment on an NVIDIA L4 passed
+[real CUDA/model verification](research/model_serving_20261009/gpu_verification_after_restart.json)
+and a [pod replacement/cache persistence check](research/model_serving_20261009/cache_persistence.json).
+The [concurrent workload](research/model_serving_20261009/benchmark_gpu_actual.json)
+included 128 measured attempts and four separate warmup requests. At concurrency
+eight, all 32 requests succeeded: 10.86 valid responses/second and successful
+p95 latency of 0.791 seconds. At concurrency 16, the eight-request admission limit
+produced 24 HTTP429 rejections; all failures remain in the results. This was a
+short, repeated sentiment prompt with prefix caching and a localhost port-forward,
+not a representative financial-news evaluation or production reliability study.
 
-Do not use `scripts/run_paper_live.py` as a quick-start smoke test. It is an operational entry point and reads the configured integrations. Review [`config/config.yaml`](config/config.yaml), [`.env.example`](.env.example), and the [deployment notes](DEPLOYMENT_2026-09-11.md) before running services. The dashboard implementation has no built-in authentication and defaults to a network-accessible bind address.
+See the [deployment runbook](deploy/kubernetes/RUNBOOK.md) and
+[measurement definitions and records](research/model_serving_20261009/benchmark_README.md).
+Real GPU/model measurements are retained separately from HTTP test-double
+results and synthetic research fixtures. A failed initial image or model
+startup is retained as a failure. Kubernetes workload deletion alone does not
+stop cloud GPU-node billing. The isolated demo's cluster, GPU node, cache disk
+and image repository were [verified deleted](research/model_serving_20261009/cloud_cleanup.json)
+after measurement.
 
-## Evaluation and current limits
+## Code tour for reviewers
 
-The research policy requires at least 60 trading days and a paired Diebold-Mariano test with Newey-West errors before a superiority claim. A shared ex-ante risk target alone does not make realized-risk comparisons fair.
+- [Serving API](serving/api.py) and [contracts/client](core/llm): validated model requests, bounded concurrency and cancellation.
+- [Risk governor](core/risk/governor.py), [final limits](core/risk/final_limits.py) and [ledger](core/ledger/ledger.py): finite-input checks, constrained allocations and atomic accounting.
+- [Research harness](research/harness.py), [director](research/director.py) and [backtest](backtest/engine.py): registered experiments, held-out evaluation and causal history checks.
+- [Benchmark](scripts/benchmark_model_serving.py) and [research demo](scripts/demo_model_research.py): reproducible HTTP workloads, all-attempt failure accounting and a synthetic proposal/critique pipeline.
+- [ML engineering review](docs/ML_ENGINEERING.md), [tests](tests) and [CI](.github/workflows/ci.yml): verification scope and remaining limitations.
 
-The September 9, 2026 snapshot in the audit had 16 observations, p = 0.7555, and unequal realized volatility. Those are historical observations, not a current performance report. Earlier `PASS` or `CONFIRMED` labels must be read with the subsequent corrections; they do not establish an executable edge.
+## Evaluation and operating limits
 
-Operational and research limits include authentication/TLS for the dashboard, reproducible dependency pinning, realized-risk comparisons, capacity assumptions, and fresh validation of corrected event research. Live state, account data, credentials, and generated runtime artifacts are excluded from the repository.
+The registered research policy requires at least 60 trading days and a paired
+Diebold-Mariano test with Newey-West errors before a superiority claim. A common
+ex-ante volatility target does not guarantee comparable realized risk. Read the
+[quant audit](QUANT_AUDIT_2026-09-10.md) and
+[research corrections](research/CORRECTIONS.md) before using historical success
+labels. Neither a test-suite pass nor a short paper run proves an executable edge.
+
+Remaining issues include event availability timestamps, some research RNG and
+covariance assumptions, execution realism, realized-risk comparability and
+fresh validation of corrected hypotheses. They are described in the engineering
+review; historical results are not silently repaired or regraded.
+
+The dashboard binds localhost by default, escapes untrusted state text and
+shows unavailable/stale data explicitly. Remote binding requires credentials
+from environment variables. Keep it behind an SSH tunnel or trusted TLS proxy;
+Basic authentication does not encrypt HTTP traffic. Legacy deployment scripts
+fail closed. Current operational and model-service entry points are documented
+in their deployment notes.
 
 ## Further reading
 
-- [Design specification](SPEC.md)
-- [Technical formulas](TECHNICAL_APPENDIX.md)
-- [Research log](RESEARCH_LOG.md)
-- [Quant audit](QUANT_AUDIT_2026-09-10.md)
-- [Deployment verification](DEPLOYMENT_2026-09-11.md)
-- [Research record corrections](research/CORRECTIONS.md)
+- [Design specification](SPEC.md) and [technical formulas](TECHNICAL_APPENDIX.md)
+- [Research log](RESEARCH_LOG.md) and [deployment notes](DEPLOYMENT_2026-09-11.md)
+- [Contributor instructions](AGENTS.md) and [research invariants](CLAUDE.md)
 
-[Noah Dericioglu's portfolio](https://curatedengineer.com) · [Contact](mailto:aderici@unc.edu)
+[Noah Dericioglu’s portfolio](https://curatedengineer.com) · [Contact](mailto:aderici@unc.edu)

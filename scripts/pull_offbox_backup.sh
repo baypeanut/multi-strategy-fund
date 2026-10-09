@@ -8,15 +8,23 @@
 # can be taken from the side that already has the right.
 #
 # Everything the fund knows lives in one file on one host: 45 days of equity
-# history for five books, and the forward out-of-sample record on the only
-# confirmed edge. Local backups on the same box do not survive losing the box.
+# history for five books and forward research records. Local backups on the
+# same box do not survive losing the box; historic labels are not current proof.
 #
-# Secrets never travel: backup_state.py excludes .env and config.ini from the
-# archive by construction, and this script re-checks before keeping a copy.
+# Credential files are excluded by backup_state.py and re-checked here. The
+# financial records inside a backup remain private operator data.
 set -euo pipefail
 
-HOST="${FUND_HOST:-root@your-fund-host}"
-REMOTE_DIR="/opt/fund"
+HOST="${FUND_HOST:?Set FUND_HOST explicitly to the reviewed backup source.}"
+REMOTE_DIR="${FUND_REMOTE_DIR:?Set FUND_REMOTE_DIR explicitly to the fund directory.}"
+if [[ ! "$HOST" =~ ^([a-zA-Z_][a-zA-Z0-9_.-]*@)?[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]]; then
+    printf '%s\n' 'FUND_HOST must be a hostname/IPv4 address with an optional username.' >&2
+    exit 2
+fi
+if [[ ! "$REMOTE_DIR" =~ ^/[a-zA-Z0-9_./-]+$ ]]; then
+    printf '%s\n' 'FUND_REMOTE_DIR must be an absolute path without shell metacharacters.' >&2
+    exit 2
+fi
 DEST="${FUND_BACKUP_DIR:-$HOME/Trading_backups}"
 KEEP=30
 
@@ -30,22 +38,31 @@ if [ -z "$latest" ]; then
 fi
 
 name=$(basename "$latest")
+if [[ "$latest" != "$REMOTE_DIR/data/backups/"* || ! "$name" =~ ^fund_ledgers_[a-zA-Z0-9_.-]+\.tar\.gz$ ]]; then
+    printf '%s\n' 'REFUSED unexpected archive location or name.' >&2
+    exit 2
+fi
 if [ -f "$DEST/$name" ]; then
     echo "already have $name"
 else
-    scp -q "$HOST:$latest" "$DEST/$name.part"
+    incoming=$(mktemp "$DEST/.incoming.XXXXXX")
+    trap 'rm -f -- "$incoming"' EXIT
+    scp -q "$HOST:$latest" "$incoming"
+    # Read the complete inventory once. Under pipefail, tar | grep -q can
+    # report a broken pipe after an early match and bypass the secret guard.
+    inventory=$(tar -tzf "$incoming")
     # refuse to keep an archive that carries a secret
-    if tar -tzf "$DEST/$name.part" | grep -qE '(^|/)\.env$|config\.ini$'; then
-        rm -f "$DEST/$name.part"
+    if grep -qE '(^|/)\.env($|\.)|(^|/)[^/]+\.env$|(^|/)config\.ini$' <<< "$inventory"; then
         echo "REFUSED $name: archive contains a secret file" >&2
         exit 2
     fi
-    tar -tzf "$DEST/$name.part" | grep -q 'state\.json$' || {
-        rm -f "$DEST/$name.part"
+    grep -qE '(^|/)state\.json$' <<< "$inventory" || {
         echo "REFUSED $name: no state.json inside, that is not a usable backup" >&2
         exit 3
     }
-    mv "$DEST/$name.part" "$DEST/$name"
+    chmod 600 "$incoming"
+    mv "$incoming" "$DEST/$name"
+    trap - EXIT
     echo "pulled $name ($(du -h "$DEST/$name" | cut -f1))"
 fi
 

@@ -9,6 +9,7 @@ universe, parameters or previously inspected evaluation period.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from numbers import Integral, Real
 
 import numpy as np
 import pandas as pd
@@ -51,17 +52,30 @@ def run_backtest(
     rebalance_days: int = 21,
     warmup: int = 252,
 ) -> BacktestResult:
+    """Evaluate a chronologically indexed history without repairing its ordering.
+
+    Sorting the price panel cannot make an unsorted strategy history causal:
+    label slicing of the original frame can still include future rows. Reject
+    ambiguous ordering/duplicate timestamps before invoking any strategy.
+    """
+    for name, value in (("warmup", warmup), ("rebalance_days", rebalance_days)):
+        if not isinstance(value, Integral) or isinstance(value, bool) or value < 1:
+            raise ValueError(f"{name} must be a positive integer")
+    if not isinstance(nav0, Real) or isinstance(nav0, bool) or not np.isfinite(nav0) or nav0 <= 0:
+        raise ValueError("nav0 must be finite and positive")
+    for symbol, history in histories.items():
+        if not isinstance(history, pd.DataFrame):
+            raise ValueError(f"history for {symbol} must be a DataFrame")
+        if not history.index.is_unique or not history.index.is_monotonic_increasing or history.index.hasnans:
+            raise ValueError(f"history for {symbol} requires unique, increasing, non-missing timestamps")
+        if len(history) > warmup and not {"close", "volume"} <= set(history.columns):
+            raise ValueError(f"history for {symbol} requires close and volume columns")
     closes = {s: d["close"] for s, d in histories.items() if len(d) > warmup}
     volumes = {s: d["volume"] for s, d in histories.items() if len(d) > warmup}
     close = pd.DataFrame(closes).sort_index()
     volume = pd.DataFrame(volumes).sort_index()
     if close.shape[0] <= warmup or close.shape[1] == 0:
         raise ValueError("not enough history for backtest")
-
-    if not np.isfinite(nav0) or nav0 <= 0:
-        raise ValueError("nav0 must be finite and positive")
-    if warmup < 1 or rebalance_days < 1:
-        raise ValueError("warmup and rebalance_days must be positive")
 
     # A held share count stays fixed between decisions. Constant target weights
     # would silently rebalance every day for free, changing both P&L and costs.

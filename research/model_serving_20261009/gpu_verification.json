@@ -1,0 +1,177 @@
+{
+  "checked_at": "2026-10-09T18:19:51.726734+00:00",
+  "context": "REDACTED_OPERATOR_IDENTITY",
+  "namespace": "fund-llm",
+  "gpu_deployment_verified": true,
+  "pods": [
+    {
+      "name": "model-gateway-db576458f-4dfx6",
+      "uid": "6dfb2528-8b13-4f76-89f0-5061a18bd518",
+      "node": "REDACTED_OPERATOR_IDENTITY",
+      "phase": "Running",
+      "ready": true,
+      "volumes": [
+        {
+          "name": "tmp",
+          "persistentVolumeClaim": null
+        }
+      ],
+      "containers": [
+        {
+          "name": "gateway",
+          "image": "us-central1-docker.pkg.dev/PROJECT/fund-vllm-demo-20261009/gateway@sha256:2823373969f0f983ae2fba546973519f240f90c807d50f1cf0f0e5625fdd7dca",
+          "resources": {
+            "limits": {
+              "cpu": "1",
+              "memory": "1Gi"
+            },
+            "requests": {
+              "cpu": "500m",
+              "memory": "512Mi"
+            }
+          },
+          "volumeMounts": [
+            {
+              "mountPath": "/tmp",
+              "name": "tmp"
+            }
+          ],
+          "command": [],
+          "args": []
+        }
+      ],
+      "statuses": [
+        {
+          "name": "gateway",
+          "ready": true,
+          "restartCount": 0,
+          "imageID": "us-central1-docker.pkg.dev/PROJECT/fund-vllm-demo-20261009/gateway@sha256:2823373969f0f983ae2fba546973519f240f90c807d50f1cf0f0e5625fdd7dca"
+        }
+      ]
+    },
+    {
+      "name": "vllm-654f48bb56-kqsc8",
+      "uid": "82d47a29-3729-4770-8768-7bcaf5d258ad",
+      "node": "REDACTED_OPERATOR_IDENTITY",
+      "phase": "Running",
+      "ready": true,
+      "volumes": [
+        {
+          "name": "model-cache",
+          "persistentVolumeClaim": {
+            "claimName": "vllm-model-cache"
+          }
+        },
+        {
+          "name": "shm",
+          "persistentVolumeClaim": null
+        }
+      ],
+      "containers": [
+        {
+          "name": "vllm",
+          "image": "vllm/vllm-openai:v0.31.0@sha256:c1c9f6fd5c109ba7f0546a59f5b2f15fb87f64c77782e90a27b648b42a8e67c3",
+          "resources": {
+            "limits": {
+              "cpu": "8",
+              "memory": "24Gi",
+              "nvidia.com/gpu": "1"
+            },
+            "requests": {
+              "cpu": "4",
+              "memory": "16Gi",
+              "nvidia.com/gpu": "1"
+            }
+          },
+          "volumeMounts": [
+            {
+              "mountPath": "/model-cache",
+              "name": "model-cache"
+            },
+            {
+              "mountPath": "/dev/shm",
+              "name": "shm"
+            }
+          ],
+          "command": [
+            "vllm",
+            "serve"
+          ],
+          "args": [
+            "$(FUND_MODEL_ID)",
+            "--revision",
+            "$(FUND_MODEL_REVISION)",
+            "--tokenizer-revision",
+            "$(FUND_MODEL_REVISION)",
+            "--served-model-name",
+            "$(MODEL_NAME)",
+            "--host",
+            "0.0.0.0",
+            "--port",
+            "8000",
+            "--dtype",
+            "half",
+            "--max-model-len",
+            "4096",
+            "--max-num-seqs",
+            "8",
+            "--gpu-memory-utilization",
+            "0.80",
+            "--generation-config",
+            "vllm",
+            "--enforce-eager",
+            "--no-enable-log-requests"
+          ]
+        }
+      ],
+      "statuses": [
+        {
+          "name": "vllm",
+          "ready": true,
+          "restartCount": 0,
+          "imageID": "docker.io/vllm/vllm-openai@sha256:c1c9f6fd5c109ba7f0546a59f5b2f15fb87f64c77782e90a27b648b42a8e67c3"
+        }
+      ]
+    }
+  ],
+  "problems": [],
+  "pvc": {
+    "name": "vllm-model-cache",
+    "phase": "Bound",
+    "volume_name": "persistent-model-cache-volume",
+    "storage_class": "standard-rwo"
+  },
+  "runtime": {
+    "cuda_available": true,
+    "vllm_version": "0.31.0",
+    "torch_version": "2.13.0+cu130",
+    "torch_cuda_runtime": "13.0",
+    "device_count": 1,
+    "device_name": "NVIDIA L4",
+    "compute_capability": [
+      8,
+      9
+    ],
+    "cuda_tensor_operation_passed": true,
+    "model_cache_revision_exists": true,
+    "expected_revision": "989aa7980e4cf806f80c7fef2b1adb7bc71aa306",
+    "actual_model": "Qwen/Qwen2.5-1.5B-Instruct",
+    "actual_model_revision": "989aa7980e4cf806f80c7fef2b1adb7bc71aa306",
+    "actual_tokenizer_revision": "989aa7980e4cf806f80c7fef2b1adb7bc71aa306",
+    "actual_served_model_name": "fund-llm",
+    "served_models": [
+      "fund-llm"
+    ],
+    "generation_passed": true,
+    "completion_tokens": 2
+  },
+  "gateway_runtime": {
+    "gateway_ready": true
+  },
+  "evidence_scope": "GPU allocation and generation at check time; not uptime, throughput, quality or profitability",
+  "public_export": {
+    "operator_identifiers_redacted": true,
+    "numeric_measurements_changed": false,
+    "original_artifact_sha256": "5075b1fa310181f9dac920feb315a61671affacd71585d8fe2bc997f50c1ecfe"
+  }
+}
