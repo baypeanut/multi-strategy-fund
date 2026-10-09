@@ -1,0 +1,39 @@
+name: Offline engineering checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.14"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            requirements.txt
+            requirements-serving.txt
+      - name: Install tested dependencies
+        run: python -m pip install -e '.[dev,serving]'
+      - name: Check installed dependency consistency
+        run: python -m pip check
+      - name: Require browser regression runtime
+        run: node --version
+      - name: Lint execution defects
+        run: ruff check core systems backtest runtime dashboard scripts research tests serving
+      - name: Run offline regression suite
+        run: python -m pytest --timeout=90
+      - name: Build distribution
+        run: python -m build

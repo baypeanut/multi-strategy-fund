@@ -540,3 +540,28 @@ and two S4 liquidity breaches. Estimated transition transaction costs: S1
 $397.60, S4 $130.66; other books $0 in that scenario. These are modeled costs,
 not a backtest return, broker fill result, or profit forecast. Details and
 verification: IMPROVEMENTS_2026-09-16.md.
+
+## 2026-10-09 — GPU model serving and engineering review
+
+Owner-directed engineering release, not a new alpha trial. Added an opt-in validated
+vLLM gateway, pinned GPU Kubernetes deployment, concurrent workload driver and
+synthetic proposal/critique demonstration. Existing paper model selection, registered
+parameters, ledgers and clocks are unchanged; no trading service was redeployed.
+
+Actual GKE/NVIDIA L4 verification completed with vLLM 0.31.0/CUDA 13, real tensor
+and model execution, pinned Qwen2.5-1.5B revision and cache survival across pod
+replacement. Initial CUDA-variant and Kubernetes service-environment failures were
+retained and fixed. The workload had 128 measured attempts plus 4 separate warmup;
+104 valid responses and 24 explicit HTTP429 admission rejections at concurrency16.
+Concurrency8: 10.86 valid requests/second, successful p95 0.791 seconds. The repeated
+short prompt, prefix cache and port-forward limit generalization of these timings.
+
+ML and FullStack reviews added atomic fill validation, causal history checks,
+finite-input risk halts, private atomic state writes, safe dashboard authentication/
+escaping/stale indicators, a synthetic offline demo, reproducible direct pins,
+package builds and CPU CI. Dangerous legacy helpers fail closed. Local final suite:
+870 passed, one expected skip; pip consistency, defect lint and diff checks passed.
+Clean Linux Python3.12/3.14 and installed-wheel evidence is retained separately.
+Remaining evaluation limitations are documented in docs/ML_ENGINEERING.md. This
+release does not establish an executable edge, model superiority or a live-money
+mandate. GPU cleanup and estimated billing scope are recorded with serving evidence.

@@ -1,20 +1,13 @@
-# Core data + numerics
-numpy
-pandas
-scipy
-pyyaml
-certifi           # CA bundle for urllib (EDGAR, FRED)
-
-# Free data providers
-yfinance          # equities (free fallback)
-ccxt              # crypto public data (free)
-
-# Paid integrations (activate via keys in .env)
-anthropic         # S3 PM + S2 scoring (ANTHROPIC_API_KEY)
-
-# Validation / stats (used from step 3 on)
-statsmodels       # cointegration, regressions
-
-# Testing
-pytest
-pytest-timeout>=2.3
+# Tested direct runtime dependencies; pyproject.toml is the package metadata.
+# Optional HTTP gateway/test tools: pip install -e '.[dev,serving]'
+numpy==2.4.6
+pandas==3.0.3
+scipy==1.17.1
+PyYAML==6.0.3
+certifi==2026.6.17
+yfinance==1.4.1
+ccxt==4.5.59
+anthropic==1.13.0
+statsmodels==0.15.0
+pytest==9.1.0
+pytest-timeout==2.4.0

@@ -1,0 +1,128 @@
+{
+  "recorded_at_utc": "2026-10-09T18:21:35.928949+00:00",
+  "scope": "offline full-stack engineering checks, not strategy validation or deployment evidence",
+  "isolated_python312": {
+    "python": "3.12.15",
+    "node": "REDACTED_OPERATOR_IDENTITY",
+    "image": "python@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1",
+    "passed": 864,
+    "skipped": 1,
+    "seconds": 27.12,
+    "skip_reason": "separate weekend-case test",
+    "pip_check": "passed",
+    "ruff": "passed",
+    "build": "passed"
+  },
+  "installed_wheel_smoke": {
+    "passed": true,
+    "away_from_source_checkout": true,
+    "configured_resources_imported": true,
+    "paper_help_only_no_tick": true,
+    "synthetic_loopback_demo_started_and_stopped": true
+  },
+  "distribution_review": {
+    "wheel_files": 91,
+    "sdist_files": 204,
+    "config_yaml_included": true,
+    "core_data_provider_code_included": true,
+    "demo_cli_included": true,
+    "secrets_live_root_data_archives_proposals_status_excluded": true
+  },
+  "targeted_current_tree": {
+    "passed": 36,
+    "includes": "HTTP auth/privacy/CSP/exact routes, browser escaping and stale/demo labels, atomic private state writes and failure retention, halt/reporting integration"
+  },
+  "first_snapshot_attempt": {
+    "copied_source_metadata_missing": [
+      ".gitignore",
+      "research/RESULTS.jsonl",
+      "research/registry.json"
+    ],
+    "passed": 844,
+    "failed": 2,
+    "skipped": 2,
+    "resolution": "corrected isolated-copy allowlist, then full rerun passed; no source test weakened"
+  },
+  "boundaries": {
+    "cloud_calls": false,
+    "broker_connections": false,
+    "trading_ticks": false,
+    "notification_sends": false,
+    "paid_model_calls": false,
+    "production_deployment": false,
+    "financial_parameters_changed": false
+  },
+  "files": {
+    "dashboard/server.py": {
+      "sha256": "5d1ae66a640aad9cf367d82c88649659ecd015638b441402a38da24cc4a16cdc"
+    },
+    "runtime/live.py": {
+      "sha256": "341a2e22e3231f1c856728132aa6113a985114b4e6d7587ae827af5b66e7a5a3"
+    },
+    "scripts/demo_dashboard.py": {
+      "sha256": "400417adaf23d19de56dbbcbfda33cb406027ac6ef42846f5aff9d636c47d983"
+    },
+    "scripts/run_paper_live.py": {
+      "sha256": "b986cf01843f0051b85f66a38168a12812299a77b200f19ae75d043d3ede6bd9"
+    },
+    "pyproject.toml": {
+      "sha256": "fef553b78a75fcc21eff51d8f92779066b6db3e01362ae8a8ff6eeb8d2298a7d"
+    },
+    ".github/workflows/ci.yml": {
+      "sha256": "ddaa47d073fa58f92cd1e775b1888bddce0576aca0b2b66c60dfe08690b8f2c5"
+    },
+    "tests/test_dashboard_http.py": {
+      "sha256": "92ef25a25e803ce755fc9de2d6ffe2a50734809606a6b1183c6775a367b4172d"
+    },
+    "tests/test_dashboard_demo.py": {
+      "sha256": "c65312124557c690a203ddf4e564894412d36650b7e6f439f29859622768384f"
+    },
+    "tests/test_runtime_operations.py": {
+      "sha256": "7aaa8660b476decea3a41b35765b4e1c0b2e75f4c708b8ac6cb186e2e316cfe6"
+    },
+    "scripts/build_public_repo.sh": {
+      "sha256": "b6b2442c86af34d7196ac7da2ba6b55a7b21037d569ffb7e931b5a4443a8e759"
+    },
+    "scripts/pull_offbox_backup.sh": {
+      "sha256": "146004bf07c15d3c3205fb953d11cbe8ad93712190bfdb9d76cbf2a0aabf4ff9"
+    },
+    "deploy/deploy.sh": {
+      "sha256": "3e7a048273939f8b4a283fcfa71348651991d90a0a5bbb88561c5c5535b5f5b1"
+    },
+    "deploy/setup_server.sh": {
+      "sha256": "50386144561b2e9d422ce7c482f8e2082b412c78af6feadcfa4d5b2dd839eea4"
+    },
+    "tests/test_offbox_backup.py": {
+      "sha256": "96c3a606505fa8f5ec264e8693aca659173d5fb7705fa745ae079923ff201a13"
+    }
+  },
+  "isolated_python314": {
+    "python": "3.14.8",
+    "node": "REDACTED_OPERATOR_IDENTITY",
+    "image": "python@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170",
+    "passed": 864,
+    "skipped": 1,
+    "seconds": 28.23,
+    "skip_reason": "separate weekend-case test",
+    "pip_check": "passed",
+    "ruff": "passed"
+  },
+  "verification_limits": [
+    "Hosted GitHub Actions workflow configured but not executed by this local task.",
+    "Browser render functions executed in Node; native browser connection was unavailable, so no visual screenshot proof is claimed.",
+    "Two additional atomic-write regressions were added after isolated snapshots and passed in targeted current-tree checks."
+  ],
+  "legacy_helpers": {
+    "deploy_and_setup": "retired failclosed; no writes/SSH/firewall changes",
+    "public_export": "retired failclosed; supplied destination preserved",
+    "offbox_backup": "explicit operator host/directory; full archive inventory guards credential files; private unpredictable download temp; own-temp cleanup on rejection",
+    "new_fake_transport_regressions_passed": 6,
+    "manual_missing_target_and_preserved_export_checks": "passed",
+    "network_calls_in_regressions": false
+  },
+  "public_export": {
+    "operator_identifiers_redacted": true,
+    "numeric_measurements_changed": false,
+    "original_artifact_sha256": "f3f59eb742dae2973a92e1ad0f0512d908317072e31327c1ca60eb84dd47317e"
+  }
+}

@@ -18,6 +18,7 @@ import json
 import math
 import os
 import pickle
+import tempfile
 import threading
 import time
 from dataclasses import dataclass, field
@@ -49,6 +50,7 @@ from systems.s3_llm.pm import AnthropicPM, HeuristicPM, OllamaPM
 from systems.s3_llm.regime import compute_regime
 from systems.s3_llm.wrapper import RiskWrapper
 from systems.s4_combined.engine import S4Engine
+from systems.vllm_provider import VLLMPM, VLLMScorer, selected_provider
 
 SYSTEMS = ["s1", "s2", "s3", "s4"]
 MAX_HISTORY = 3000
@@ -487,9 +489,17 @@ class LiveRuntime:
     def _save(self) -> None:
         # atomic: a crash mid-write must never corrupt the fund's only ledger
         self.state_path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = self.state_path.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(self.state, indent=2))
-        os.replace(tmp, self.state_path)
+        payload = json.dumps(self.state, indent=2)
+        fd, filename = tempfile.mkstemp(prefix=f".{self.state_path.name}-", dir=self.state_path.parent)
+        tmp = Path(filename)
+        try:
+            with os.fdopen(fd, "w") as fh:
+                fh.write(payload)
+                fh.flush()
+                os.fsync(fh.fileno())
+            os.replace(tmp, self.state_path)
+        finally:
+            tmp.unlink(missing_ok=True)
 
     def _sync_halt_clear_from_disk(self) -> None:
         """Honor a human clear written by scripts/clear_halt.py.
@@ -775,6 +785,30 @@ class LiveRuntime:
         )
 
     # --- S2 news pipeline ------------------------------------------------------
+    def _make_news_llm(self, llm_cfg):
+        """Explicit vLLM never invokes an unrelated paid provider."""
+        if selected_provider(llm_cfg) == "vllm":
+            return (VLLMScorer(config=llm_cfg), True) if self._llm_budget_ok("scorer") else (None, True)
+        from systems.s2_news.sentiment import AnthropicScorer, OllamaScorer
+        local = (OllamaScorer(model=llm_cfg.get("model", "qwen2.5:3b-instruct"),
+                              host=llm_cfg.get("host", "http://localhost:11434"))
+                 if llm_cfg.get("enabled") else None)
+        if has_key("ANTHROPIC_API_KEY") and self._llm_budget_ok("scorer"):
+            return AnthropicScorer(model=llm_cfg.get("s2_model", "claude-haiku-4-5"), fallback=local), True
+        return local, False
+
+    def _make_s3_pm(self, llm_cfg):
+        if selected_provider(llm_cfg) == "vllm":
+            return VLLMPM(max_position=CONFIG.risk.max_position, config=llm_cfg), True
+        base_pm = (OllamaPM(model=llm_cfg.get("model", "qwen2.5:3b-instruct"),
+                            host=llm_cfg.get("host", "http://localhost:11434"),
+                            max_position=CONFIG.risk.max_position)
+                   if llm_cfg.get("enabled") else HeuristicPM(CONFIG.risk.max_position))
+        if has_key("ANTHROPIC_API_KEY"):
+            return AnthropicPM(model=llm_cfg.get("s3_model", "claude-opus-4-8"),
+                               max_position=CONFIG.risk.max_position, fallback=base_pm), True
+        return base_pm, False
+
     def _ingest_news(self, syms: list[str], now: datetime) -> None:
         """Fetch + score + store fresh headlines (no price data needed).
 
@@ -784,7 +818,7 @@ class LiveRuntime:
         """
         from systems.s2_news.engine import NewsEngine
         from systems.s2_news.feeds import fetch_edgar_8k_items, fetch_rss_headlines, item_id
-        from systems.s2_news.sentiment import OllamaScorer, TieredScorer
+        from systems.s2_news.sentiment import TieredScorer
 
         rss_names = [s for s in rss_subset() if s in set(syms)] or syms
         items = fetch_rss_headlines(rss_names, per_symbol_limit=8)
@@ -797,26 +831,23 @@ class LiveRuntime:
             return
 
         llm_cfg = CONFIG.get("llm", {})
-        local = (OllamaScorer(model=llm_cfg.get("model", "qwen2.5:3b-instruct"),
-                              host=llm_cfg.get("host", "http://localhost:11434"))
-                 if llm_cfg.get("enabled") else None)
-        use_anthropic = has_key("ANTHROPIC_API_KEY") and self._llm_budget_ok("scorer")
-        if use_anthropic:
-            from systems.s2_news.sentiment import AnthropicScorer
-            llm = AnthropicScorer(model=llm_cfg.get("s2_model", "claude-haiku-4-5"),
-                                  fallback=local)
-        else:
-            llm = local
+        llm, budgeted = self._make_news_llm(llm_cfg)
         scorer = TieredScorer(llm_scorer=llm)
-        if use_anthropic:
+        if budgeted:
             remaining = (int(llm_cfg.get("max_scorer_calls_per_day", 400))
                          - int(self.state["llm_budget"].get("scorer", 0)))
             scorer.llm_budget = min(scorer.llm_budget, max(remaining, 0))
         NewsEngine(scorer=scorer).generate(fresh, universe=syms, now=now)
-        if use_anthropic and scorer.llm_calls:
+        if budgeted and scorer.llm_calls:
             self._llm_budget_spend("scorer", scorer.llm_calls)
             # drain the ACCUMULATED usage, not the last call (E65)
             self._record_llm_usage("scorer", getattr(llm, "usage_total", None))
+        if selected_provider(llm_cfg) == "vllm":
+            for field, counts in (("s2_vllm_source_counts", getattr(llm, "source_counts", {})),
+                                  ("s2_vllm_error_counts", getattr(llm, "error_counts", {}))):
+                total = self.state.setdefault(field, {})
+                for source, count in counts.items():
+                    total[source] = total.get(source, 0) + count
 
         stored = self.state.setdefault("s2_scored", [])
         uni = {s.upper() for s in syms}
@@ -1117,7 +1148,8 @@ class LiveRuntime:
         bar_date = str(eq["SPY"]["close"].index.max().date())
 
         llm_cfg = CONFIG.get("llm", {})
-        if has_key("ANTHROPIC_API_KEY") and not self._llm_budget_ok("pm"):
+        budgeted_pm = selected_provider(llm_cfg) == "vllm" or has_key("ANTHROPIC_API_KEY")
+        if budgeted_pm and not self._llm_budget_ok("pm"):
             # PM budget exhausted this tick. HOLD S3's existing book rather than
             # let a weaker brain decide — mixing brains inside the final-config
             # window contaminates the Opus-vs-quant attribution (E15b). A held
@@ -1129,25 +1161,18 @@ class LiveRuntime:
             self._log_s3_decision(briefing, "held", None, [], w_s3, bar_date,
                                   decision_prices, now)
         else:
-            if llm_cfg.get("enabled"):
-                base_pm = OllamaPM(model=llm_cfg.get("model", "qwen2.5:3b-instruct"),
-                                   host=llm_cfg.get("host", "http://localhost:11434"),
-                                   max_position=CONFIG.risk.max_position)
-            else:
-                base_pm = HeuristicPM(CONFIG.risk.max_position)
-            if has_key("ANTHROPIC_API_KEY"):
-                pm = AnthropicPM(model=llm_cfg.get("s3_model", "claude-opus-4-8"),
-                                 max_position=CONFIG.risk.max_position, fallback=base_pm)
+            pm, budgeted_pm = self._make_s3_pm(llm_cfg)
+            if budgeted_pm:
                 # Reserve before calling: a paid refusal/parse failure still
                 # consumes the daily call budget even when a fallback decides.
                 self._llm_budget_spend("pm")
-            else:
-                pm = base_pm
             try:
                 s3 = S3Engine(wrapper=wrapper, pm=pm).generate(
                     briefing, adv=adv, current_weights=current_s3)
             finally:
                 self._record_llm_usage("pm", getattr(pm, "usage_total", None))
+                if selected_provider(llm_cfg) == "vllm":
+                    self.state["s3_vllm_last_error_code"] = getattr(pm, "last_error_code", None)
             s3_source = s3.pm_source
             # E49: no regime multiplier here. S3 targets the same 10% as every
             # other book, so the pre-registered S3-vs-S1 test measures decision
@@ -1601,7 +1626,7 @@ class LiveRuntime:
                           "(scripts/clear_halt.py)", urgent=True)
         if self.state.get("halt_latched"):
             for k in active:
-                weights[k] = weights.get(k, pd.Series(dtype=float)) * 0.0
+                weights[k] = pd.Series(0.0, index=weights.get(k, pd.Series(dtype=float)).index)
             actions.append(f"halt latched since {self.state['halt_latched']['ts']}")
 
         # Risk limits also apply to drifted books between decisions. A missing
@@ -1736,7 +1761,8 @@ class LiveRuntime:
             getattr(self, "_eq_provider", None))
         if rebalanced and not provider_changed:
             self.state["data_provider_basis"] = provider_now
-        self.state["anthropic_active"] = has_key("ANTHROPIC_API_KEY")
+        self.state["llm_provider"] = selected_provider(CONFIG.get("llm", {}))
+        self.state["anthropic_active"] = self.state["llm_provider"] == "auto" and has_key("ANTHROPIC_API_KEY")
         counts = self.state.setdefault("s3_pm_counts", {"ollama": 0, "heuristic": 0})
         if s3_source is not None:
             self.state["s3_pm_source"] = s3_source
@@ -1849,6 +1875,10 @@ class LiveRuntime:
         }
 
     def run(self, interval: float = 3600.0, max_ticks: int | None = None) -> None:
+        if not math.isfinite(interval) or interval <= 0:
+            raise ValueError("Runtime interval must be finite and positive")
+        if max_ticks is not None and (type(max_ticks) is not int or max_ticks < 1):
+            raise ValueError("max_ticks must be a positive integer")
         n = 0
         while True:
             try:
@@ -1857,8 +1887,10 @@ class LiveRuntime:
                       f"rebalanced={out['rebalanced']} actions={out['actions']}",
                       flush=True)
             except Exception as exc:  # keep the daemon alive
-                print(f"tick error: {exc}", flush=True)
+                # API exceptions can contain URLs or request details. Keep the
+                # failure observable without publishing credential-bearing text.
+                print(json.dumps({"event": "tick_failed", "error_type": type(exc).__name__}), flush=True)
             n += 1
-            if max_ticks and n >= max_ticks:
+            if max_ticks is not None and n >= max_ticks:
                 break
             time.sleep(interval)

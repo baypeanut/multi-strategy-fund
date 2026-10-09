@@ -1,0 +1,12 @@
+{
+  "checked_at": "2026-10-09T17:54:39.799429+00:00",
+  "server_dry_run_passed": true,
+  "applied": true,
+  "gpu_deployment_verified": false,
+  "namespace": "fund-llm",
+  "model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "model_revision": "989aa7980e4cf806f80c7fef2b1adb7bc71aa306",
+  "vllm_image": "vllm/vllm-openai:v0.31.0-cu129@sha256:ff29e51a9457f191deb332b96fa6440584fa941aa2a548449b604e2b1e5e1eeb",
+  "gateway_image_digest": "sha256:2823373969f0f983ae2fba546973519f240f90c807d50f1cf0f0e5625fdd7dca",
+  "next_step": "Wait for real model loading, then run hardware verification and concurrent benchmark"
+}

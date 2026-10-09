@@ -1,8 +1,9 @@
 """Ingestion — SEC EDGAR filings (free, no API key).
 
 EDGAR exposes a JSON submissions API. We map tickers -> CIK, then pull recent
-filings (8-K, 10-Q, etc.). SEC requires a descriptive User-Agent. This is the
-backtestable, point-in-time event source; live headline feeds (GDELT/RSS) plug
+filings (8-K, 10-Q, etc.). SEC requires a descriptive User-Agent. Records here
+use the filing calendar date, not the intraday acceptance timestamp; they do
+not establish intraday information availability. Live headline feeds plug
 into the same NewsItem interface.
 """
 from __future__ import annotations

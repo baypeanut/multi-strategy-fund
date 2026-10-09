@@ -8,6 +8,7 @@ data being present and the prompt no longer describing the retired
 human-review gate.
 """
 import json
+import hashlib
 import pytest
 
 import research.engineer as eng
@@ -88,7 +89,8 @@ def test_context_is_whole_and_free_of_proposal_duplicates(tmp_path):
     assert not listed, f"proposal copies leaked into context: {listed[:3]}"
 
     for must_see in ("config/config.yaml", "core/risk/governor.py",
-                     "research/harness.py", "runtime/live.py"):
+                     "research/harness.py", "runtime/live.py", "serving/api.py",
+                     "serving/Dockerfile", "deploy/kubernetes/vllm-deployment.yaml"):
         assert f"--- FILE: {must_see} ---" in ctx, f"{must_see} missing"
 
     omitted = [p for p in _files_in(ctx, omitted=True) if not p.startswith("{")]
@@ -109,6 +111,51 @@ def test_context_is_whole_and_free_of_proposal_duplicates(tmp_path):
             f"engineer context at {100 * len(ctx) / eng._MAX_CTX_CHARS:.1f}% of "
             f"cap ({len(ctx):,}/{eng._MAX_CTX_CHARS:,}) — raise _MAX_CTX_CHARS or "
             f"tail more files before it starts evicting", stacklevel=2)
+
+
+def test_context_preserves_whole_current_hot_files():
+    ctx = eng.build_context()
+    for rel in ("runtime/live.py", "research/engineer.py", "core/llm/vllm.py", "serving/api.py"):
+        text = (eng.ROOT / rel).read_text()
+        assert len(text) <= eng._MAX_FILE_CHARS
+        assert f"--- FILE: {rel} ---\n{text}" in ctx
+
+
+def test_forensic_copy_is_explicitly_indexed_without_hiding_actual_source(tmp_path, monkeypatch):
+    monkeypatch.setattr(eng, "ROOT", tmp_path)
+    monkeypatch.setattr(eng, "WISHES", tmp_path / "research/WISHES.md")
+    monkeypatch.setattr(eng, "_research_ledger", lambda: "")
+    monkeypatch.setattr(eng, "_mirror_view", lambda: "")
+    monkeypatch.setattr(eng, "list_proposals", lambda: [])
+    sources = {
+        "runtime/live.py": "# current hot runtime; must remain visible\n",
+        "core/llm/vllm.py": "# current real inference client\n",
+        "serving/api.py": "# current validated API\n",
+        "serving/Dockerfile": "FROM python:3.12.12-slim\n",
+        "deploy/kubernetes/vllm-deployment.yaml": "kind: Deployment\n",
+        # A similarly named folder outside the exact forensic prefix is NOT archived.
+        "research/etf-evidence/active_experiment.py": "# current research source, keep whole\n",
+    }
+    for rel, content in sources.items():
+        target = tmp_path / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content)
+    copied_rel = "research/status_20261007/etf-evidence/etf_paper.py"
+    copied = tmp_path / copied_rel
+    copied.parent.mkdir(parents=True)
+    raw = b"# archived sibling-project forensic body must not be inlined\n"
+    copied.write_bytes(raw)
+
+    ctx = eng.build_context()
+    for rel, content in sources.items():
+        assert f"--- FILE: {rel} ---\n{content}" in ctx
+    assert "FORENSIC COPY INVENTORY" in ctx
+    assert copied_rel in ctx
+    assert hashlib.sha256(raw).hexdigest() in ctx
+    assert '"bytes": ' + str(len(raw)) in ctx
+    assert '"inline_source": false' in ctx
+    assert raw.decode() not in ctx
+    assert f"--- FILE: {copied_rel} ---" not in ctx
 
 
 def test_append_only_logs_are_tailed_not_included_whole():

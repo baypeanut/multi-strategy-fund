@@ -160,6 +160,7 @@ def test_failed_pm_response_still_counts_usage_and_budget(tmp_path, monkeypatch)
     rt = live.LiveRuntime(str(tmp_path / "state.json"))
     monkeypatch.setattr(live, "has_key", lambda name: True)
     monkeypatch.setitem(CONFIG.llm, "enabled", False)
+    monkeypatch.setitem(CONFIG.llm, "max_pm_calls_per_day", 1)
 
     class PaidButInvalid:
         last_source = "heuristic"
@@ -190,6 +191,7 @@ def test_scorer_batch_cannot_overrun_remaining_daily_budget(tmp_path, monkeypatc
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     rt.state['llm_budget'] = {'date': now.date().isoformat(), 'scorer': 399, 'pm': 0}
     monkeypatch.setitem(CONFIG.llm, 'enabled', False)
+    monkeypatch.setitem(CONFIG.llm, 'max_scorer_calls_per_day', 400)
     monkeypatch.setattr(live, 'has_key', lambda name: True)
     items = [NewsItem(now, 'AAA beats estimates record profit', ['AAA'], 't', 'u1'),
              NewsItem(now, 'AAA lawsuit probe bankruptcy', ['AAA'], 't', 'u2')]

@@ -1,0 +1,2 @@
+# Install the tested runtime + optional gateway environment + developer checks.
+-e .[dev,serving]

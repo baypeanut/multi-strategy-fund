@@ -1,0 +1,81 @@
+{
+  "verified_at": "2026-10-09T18:54:29.430040+00:00",
+  "environment": {
+    "python": "3.14.0",
+    "platform": "Darwin",
+    "architecture": "arm64",
+    "kind": "local-public-checkout-not-CI"
+  },
+  "public_base_commit": "499228056ee6c7c4e64de3bda0f330d92b3784b3",
+  "publication_method": "Clean feature branch based on existing public history; private server history excluded.",
+  "public_sample_defaults": {
+    "broker_enabled": false,
+    "broker_execute": false,
+    "pm_daily_call_budget": 0,
+    "scorer_daily_call_budget": 0,
+    "local_llm_enabled": false,
+    "automatic_apply_commit_restart": false
+  },
+  "validation": {
+    "pytest": {
+      "passed": 869,
+      "skipped": 2,
+      "failed": 0,
+      "seconds": 29.9,
+      "command": "python -m pytest --timeout=90 -q",
+      "skip_reasons": [
+        "no pending pre-registered specs in public research queue",
+        "weekend case covered separately"
+      ]
+    },
+    "ruff": "passed",
+    "wheel_and_sdist_build": "passed",
+    "dependency_check": "passed",
+    "staged_diff_check": "passed"
+  },
+  "focused_source_check": {
+    "passed": 67,
+    "seconds": 1.87,
+    "reason": "Individual mocked budget scenarios explicitly declare budgets; registered defaults read directly from disk."
+  },
+  "prior_operating_checkout_check": {
+    "passed": 870,
+    "skipped": 1,
+    "seconds": 35.7,
+    "kind": "Historical dated local validation; distinct research queue from public checkout.",
+    "artifact": "final_verification.json"
+  },
+  "active_source_comparison": {
+    "exact_matches": 175,
+    "dummy_account_fixture_substitutions": [
+      "tests/test_alerts.py",
+      "tests/test_fills_ledger.py",
+      "tests/test_ibkr.py",
+      "tests/test_mirror_stacking.py"
+    ],
+    "unexpected_differences": []
+  },
+  "documentation": {
+    "checked_documents": 6,
+    "local_links_checked": 41,
+    "broken_links": []
+  },
+  "privacy_scan_findings": [],
+  "private_archives_copied": false,
+  "public_historical_research_log_preserved": true,
+  "model_inference_during_release_review": false,
+  "gpu_evidence": "../model_serving_20261009/gpu_verification.json",
+  "benchmark_evidence": "../model_serving_20261009/benchmark_gpu_actual.json",
+  "cloud_cleanup_evidence": "../model_serving_20261009/cloud_cleanup.json",
+  "ci_result": "Pending GitHub Actions on published feature commit.",
+  "build_artifacts": [
+    {
+      "name": "systematic_fund_research-0.1.0-py3-none-any.whl",
+      "sha256": "ddac7347bfcdcecf5327e5269514b0ee111bfa3aa655d0384d2572be3518fbc4"
+    },
+    {
+      "name": "systematic_fund_research-0.1.0.tar.gz",
+      "sha256": "4696b0f936ee89eeea574a74e1e68c3a3509468bb4a6212bff2253416c766044"
+    }
+  ]
+}

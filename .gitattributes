@@ -1,0 +1,2 @@
+# CSV exports use Python's standard dialect; normalize only line endings in Git.
+*.csv text eol=lf

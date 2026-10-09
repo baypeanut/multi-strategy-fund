@@ -113,9 +113,11 @@ def test_gate_fires_on_new_bar_only_once(rt):
 
 
 # --- LLM daily budget ----------------------------------------------------------
-def test_llm_budget_caps_and_resets(rt):
+def test_llm_budget_caps_and_resets(rt, monkeypatch):
     from core.config import CONFIG
-    cap = CONFIG.get("llm", {}).get("max_pm_calls_per_day", 12)
+    cap = 3
+    monkeypatch.setitem(CONFIG.llm, "max_pm_calls_per_day", cap)
+    monkeypatch.setitem(CONFIG.llm, "max_scorer_calls_per_day", 1)
     assert rt._llm_budget_ok("pm")
     for _ in range(cap):
         rt._llm_budget_spend("pm")

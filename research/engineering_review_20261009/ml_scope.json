@@ -1,0 +1,529 @@
+{
+  "review_date": "2026-10-09",
+  "scope": [
+    "core",
+    "systems",
+    "backtest",
+    "research"
+  ],
+  "method": "AST inspection across listed active Python modules; targeted manual contract review where labeled; test results are reported separately. Not a line-by-line proof of all behavior.",
+  "excluded": [
+    "virtual environments",
+    "data and secrets",
+    "research/proposals copied archives",
+    "research/status_* forensic copies"
+  ],
+  "module_count": 63,
+  "source_line_count": 8638,
+  "modules": [
+    {
+      "path": "core/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "lines": 0,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "core/alerts.py",
+      "sha256": "b096b2fcdd7436d2c45dd4a901dc063052bd21f1c241125d94ffc3a3c0c50e14",
+      "lines": 145,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "core/broker/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "lines": 0,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "core/broker/costs.py",
+      "sha256": "fa839f4c76008c3a514dd06626fc5da46df5488f1a3b71e17c2ec33515ee2e5a",
+      "lines": 92,
+      "ast_parse_passed": true,
+      "targeted_manual_review": true,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "core/broker/ibkr_broker.py",
+      "sha256": "68264791d9251bb2a4df30e5b0fc5f6d494749708181ec7a84d429e58060b114",
+      "lines": 453,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "core/broker/paper_broker.py",
+      "sha256": "666daafe061e39b84d3e03dd914e03c8e27d3097890adcd0c860311f8acb8a90",
+      "lines": 96,
+      "ast_parse_passed": true,
+      "targeted_manual_review": true,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "core/config.py",
+      "sha256": "5c0930c7b558592254345a4943827e09da514f1d1e082e0f458839c0a146d2e1",
+      "lines": 41,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "core/data/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "lines": 0,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "core/data/base.py",
+      "sha256": "6c53f210aaefc48efd45cb497e6912d6d4c014c0a1009e942053afdf3c11d8e0",
+      "lines": 30,
+      "ast_parse_passed": true,
+      "targeted_manual_review": true,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "core/data/crypto.py",
+      "sha256": "189115128b6c2a5887c75771e5ab2532b561e58224e51a79d4c61be286b1926d",
+      "lines": 61,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "core/data/equities.py",
+      "sha256": "cb08ed65998ed1a89a14ba4f0c9aef3bf18cbac25ad2e9c20ab14d63b23d7dd5",
+      "lines": 57,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "core/data/factory.py",
+      "sha256": "5b9fdbd3a73dd9bbfccdb44d91d180f64a1ee36a783ccf651b79672221985318",
+      "lines": 43,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "core/data/macro.py",
+      "sha256": "47f75b2a5d8c5afbc78a38f8fc1484d8e43a6750109a311ea88b0ffb421d907d",
+      "lines": 48,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "core/data/polygon.py",
+      "sha256": "6668a583a30a11faa10a483d04bf53cc2f85fc471b5846fe296d1e0244e16d55",
+      "lines": 115,
+      "ast_parse_passed": true,
+      "targeted_manual_review": true,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "core/data/sharadar.py",
+      "sha256": "0fde48dd50d152c2ec489089b366d448354847ccb822aa8f4e3018738bc6b795",
+      "lines": 48,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "core/data/universe.py",
+      "sha256": "ae38c94a96a3641859589810d1697abc5bdb19c0527acdbec47d9e34f49a2409",
+      "lines": 140,
+      "ast_parse_passed": true,
+      "targeted_manual_review": true,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "core/env.py",
+      "sha256": "131de840f60fbb1504b6c9264cccbfcc01f450476e7991a84d04058fac2861f7",
+      "lines": 37,
+      "ast_parse_passed": true,
+      "targeted_manual_review": true,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "core/ledger/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "lines": 0,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "core/ledger/ledger.py",
+      "sha256": "d96e02cb1f8e955f13b25790fb2ce7a8465afaf217d1615e1bf6a33a755fcb4a",
+      "lines": 129,
+      "ast_parse_passed": true,
+      "targeted_manual_review": true,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "core/ledger/live_book.py",
+      "sha256": "98e6a41152ddc8e43e39c9cf4468e91d98a80341040557d9dc6f6c3e3fa2140d",
+      "lines": 97,
+      "ast_parse_passed": true,
+      "targeted_manual_review": true,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "core/llm/__init__.py",
+      "sha256": "1df1cb29c721330ad1b49b41927e7aab00dd2a352277bd56e4e537b8d2d5c2c1",
+      "lines": 5,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": true
+    },
+    {
+      "path": "core/llm/contracts.py",
+      "sha256": "22ed8e1b1e6ceafa7e5a6c29799ebcf449a95d384248c432ce7d1b159623acde",
+      "lines": 246,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": true
+    },
+    {
+      "path": "core/llm/vllm.py",
+      "sha256": "50b88de9e9f58c914fbf4b7f12106423a93b4a7841522aa3698179b796df0c6f",
+      "lines": 205,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": true
+    },
+    {
+      "path": "core/risk/final_limits.py",
+      "sha256": "b04be90ae4a98b6415caf3f97da751f3c3ad8cee3ebae796078258f97c4d15ca",
+      "lines": 67,
+      "ast_parse_passed": true,
+      "targeted_manual_review": true,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "core/risk/governor.py",
+      "sha256": "5522aadb042d4a874260485bce72c59636ef66087f7381f9f13b2a578fdfe934",
+      "lines": 176,
+      "ast_parse_passed": true,
+      "targeted_manual_review": true,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "systems/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "lines": 0,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "systems/s1_quant/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "lines": 0,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "systems/s1_quant/covariance.py",
+      "sha256": "feed0853a026d410ca592181948cc3c1952c1042ac90b09d8c290ff3e6ce7cff",
+      "lines": 74,
+      "ast_parse_passed": true,
+      "targeted_manual_review": true,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "systems/s1_quant/engine.py",
+      "sha256": "64b751b04dfe763ca19926d5b4bac601753efaa0782ca16129a3dbc332894cbb",
+      "lines": 94,
+      "ast_parse_passed": true,
+      "targeted_manual_review": true,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "systems/s1_quant/portfolio.py",
+      "sha256": "46ca764ae9f5e3c6cfb52a4435dc432bd926c126610eb476c8b5709fd56b51dc",
+      "lines": 154,
+      "ast_parse_passed": true,
+      "targeted_manual_review": true,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "systems/s1_quant/signals.py",
+      "sha256": "48f0f00b8661559bc871d3f9900db5e3db06a20ab865e8efb747379da2ad5536",
+      "lines": 73,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "systems/s1_quant/volatility.py",
+      "sha256": "c967cb47418c6e9554f0a3126349e45412fc8902e439763155d14a27daabd519",
+      "lines": 96,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "systems/s2_news/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "lines": 0,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "systems/s2_news/dedup.py",
+      "sha256": "3ba8708633a0b1d0a50b559c679426e2cac935361cf882196bcf66b2c1e176d0",
+      "lines": 44,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "systems/s2_news/engine.py",
+      "sha256": "427b8c9d0786ca7845688dc880fe97fbf67180e85ec7436788888cb0f24ae09c",
+      "lines": 60,
+      "ast_parse_passed": true,
+      "targeted_manual_review": true,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "systems/s2_news/events.py",
+      "sha256": "7d6bfe728d188c85a3bc756a1e16936d451c6e8c431b7407355ab61c6695b5fc",
+      "lines": 79,
+      "ast_parse_passed": true,
+      "targeted_manual_review": true,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "systems/s2_news/feeds.py",
+      "sha256": "19426ce9ab68fb81792a89e7bf9d3d24f93fe148d53913ac6a37f067285ddfff",
+      "lines": 105,
+      "ast_parse_passed": true,
+      "targeted_manual_review": true,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "systems/s2_news/ingest.py",
+      "sha256": "94f3a59d9a7f8d463058c864eeb387bab75bacf8cd8bba7e8959932081b8d194",
+      "lines": 72,
+      "ast_parse_passed": true,
+      "targeted_manual_review": true,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "systems/s2_news/sentiment.py",
+      "sha256": "2722ab1a93a11198d420d7533f7e87585fdebec71e8e8a9073f9910e71ec1259",
+      "lines": 199,
+      "ast_parse_passed": true,
+      "targeted_manual_review": true,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "systems/s2_news/types.py",
+      "sha256": "89ad5173abd03b7cd921ee599bd89f8504e66de7491595e8937adf9026368083",
+      "lines": 27,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "systems/s3_llm/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "lines": 0,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "systems/s3_llm/briefing.py",
+      "sha256": "5f3f0eb3e7cf0a2920c93c1d66d6e029fa3906c5f8989b6ed53947e8922afe55",
+      "lines": 42,
+      "ast_parse_passed": true,
+      "targeted_manual_review": true,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "systems/s3_llm/engine.py",
+      "sha256": "32ed25ab4b58c00eed0d640ececbbee0f567bd5e5e2d2fc8ed3669094483138e",
+      "lines": 39,
+      "ast_parse_passed": true,
+      "targeted_manual_review": true,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "systems/s3_llm/pm.py",
+      "sha256": "4f5f6a1e7ed6a9348bf062f25ca8bdc5200c8bbd6e75093969d802ee8560c8af",
+      "lines": 234,
+      "ast_parse_passed": true,
+      "targeted_manual_review": true,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "systems/s3_llm/regime.py",
+      "sha256": "3b425adbb42ea32c1828cc5f171a4b35bb0903d3f1643ab2dcf1486fd765c44e",
+      "lines": 58,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "systems/s3_llm/wrapper.py",
+      "sha256": "cd00b8d97258f258a22a21ad48f1d6b447857bc9d9eac2ed758b74222015d133",
+      "lines": 97,
+      "ast_parse_passed": true,
+      "targeted_manual_review": true,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "systems/s4_combined/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "lines": 0,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "systems/s4_combined/combine.py",
+      "sha256": "36923e25989a1b53a27a673d03481826727c0aa1f591ac950aad3d88f817f5d9",
+      "lines": 67,
+      "ast_parse_passed": true,
+      "targeted_manual_review": true,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "systems/s4_combined/engine.py",
+      "sha256": "3e570e4d17d757cc897d17adc1dd1ce51d120f506d202be764d8aef16e34c4ff",
+      "lines": 44,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "systems/s5_event/__init__.py",
+      "sha256": "085b7b5feee9cedfb51dfce48376f7e40dc77e97c41564851079a4b9f3fe5158",
+      "lines": 13,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "systems/s5_event/engine.py",
+      "sha256": "4f2250333b04d1367872a40a0e912f314ab2b7d85ce00523d7164d439a490208",
+      "lines": 63,
+      "ast_parse_passed": true,
+      "targeted_manual_review": true,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "systems/s5_event/feed.py",
+      "sha256": "d618a0778850b163154565ef22209a7a0f0b9e979690702988c90ab9bcdfe327",
+      "lines": 81,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "systems/vllm_provider.py",
+      "sha256": "4abf9d1de72727ab8fe482484cc68598b3d0138cd85faa2451938cabbb6e52b5",
+      "lines": 103,
+      "ast_parse_passed": true,
+      "targeted_manual_review": true,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "backtest/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "lines": 0,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "backtest/engine.py",
+      "sha256": "420e4d44946f95fe96af46593953676de9b4585fb7783a039391d138213ffeea",
+      "lines": 166,
+      "ast_parse_passed": true,
+      "targeted_manual_review": true,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "backtest/metrics.py",
+      "sha256": "d158a6ac659b2d9c2151907622e96891e139bff8de2a39bf59d59745d28436ee",
+      "lines": 157,
+      "ast_parse_passed": true,
+      "targeted_manual_review": true,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "research/director.py",
+      "sha256": "1848fe5ae3b1c9bcb692b527100f48987c49b47f36b950d4051f5c2dfb617553",
+      "lines": 540,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "research/engineer.py",
+      "sha256": "8fe507afb66286d53102560ac8e16826c521599348c1bff85ca945dfe828fcea",
+      "lines": 1880,
+      "ast_parse_passed": true,
+      "targeted_manual_review": true,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "research/h1_event_study.py",
+      "sha256": "741babe497893ed367f2e656378771680f7776973d6a48258f21d1dc4ef0e37d",
+      "lines": 236,
+      "ast_parse_passed": true,
+      "targeted_manual_review": true,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "research/harness.py",
+      "sha256": "ce456d21784493c642b5b77d078b6fc9adf415f474fed20b1f973007c44e4376",
+      "lines": 392,
+      "ast_parse_passed": true,
+      "targeted_manual_review": true,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "research/nightly.py",
+      "sha256": "d571570e1f8faa4866f52d35533aa2284217b2540080036c893063abc31e1069",
+      "lines": 206,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "research/primitives.py",
+      "sha256": "462f5e9ce1b5c0d7a507ca10029559d8c6d2fbb7fdf39d872a8dc1e87edd3d9c",
+      "lines": 449,
+      "ast_parse_passed": true,
+      "targeted_manual_review": true,
+      "serving_freeze_not_modified": false
+    },
+    {
+      "path": "research/security_audit.py",
+      "sha256": "b2a37a74c472925776b353845376b793ed70953cdf47cffdede9669dd2f12a85",
+      "lines": 363,
+      "ast_parse_passed": true,
+      "targeted_manual_review": false,
+      "serving_freeze_not_modified": false
+    }
+  ],
+  "live_trading_deployed": false,
+  "strategies_or_protocol_parameters_changed": false,
+  "historical_ledgers_modified": false,
+  "fingerprints_observed_at_utc": "2026-10-09T18:14:47.332561+00:00",
+  "fingerprint_scope": "Current local working-tree files at the observation time; not an immutable Git commit or market-data snapshot."
+}

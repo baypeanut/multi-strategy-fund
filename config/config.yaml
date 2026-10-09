@@ -1,3 +1,4 @@
+# Public sample: broker, paid runtime calls and autonomous operations are disabled.
 # ============================================================
 # Multi-Strategy Systematic Fund — Configuration
 # Proof phase: $3M paper book, design framed for $100M mandate.
@@ -44,12 +45,12 @@ s5:
 # not starting with "DU" — it can never touch a live account. At real money,
 # human order confirmation gets inserted in core/broker/ibkr_broker.py.
 ibkr:
-  enabled: true
-  execute: true                   # false = dry-run (plan + log, no orders)
+  enabled: false  # safe public sample; explicit opt-in required
+  execute: false  # safe public sample; explicit opt-in required
   host: 127.0.0.1
   port: 4002
   client_id: 7
-  account: DU000000              # must match AND start with DU (enforced)
+  account: "DU0000000"  # safe public sample; explicit opt-in required
   top_n: 100                      # liquid-core slice of S4's equity book
   min_trade_usd: 200              # dust filter (2bp of $1M)
   max_orders_per_sync: 150        # fuse: abort sync if plan exceeds this
@@ -73,18 +74,18 @@ ibkr:
 # Flip mode -> real_money_locked at go-live to shut the whole lane with one line.
 agent_autonomy:
   mode: paper_flexible            # paper_flexible | real_money_locked
-  engineer_enabled: false        # OFF 2026-08-11, head quant's call. The systemd
+  engineer_enabled: false  # safe public sample; explicit opt-in required
                                   # timer was already disabled after the spend
                                   # surprise, but that is OS state this repo cannot
                                   # assert. Second lock, and it travels with the code.
                                   # Re-enabling needs dollar accounting first: `.usage`
                                   # appears in no source file, so a repeat of the $30
                                   # night would be undetectable.
-  engineer_pipeline: true         # E34: plan(Fable) -> code(Opus 5) -> review(Fable)
+  engineer_pipeline: false  # safe public sample; explicit opt-in required
                                   # gate before apply; false = legacy single call
-  auto_apply: true                # E30: agent applies its own passing proposals
-  auto_commit: true               # one git commit per applied proposal
-  auto_restart: true              # E34: restart paper-trader after an applied
+  auto_apply: false  # safe public sample; explicit opt-in required
+  auto_commit: false  # safe public sample; explicit opt-in required
+  auto_restart: false  # safe public sample; explicit opt-in required
                                   # runtime/core/dashboard change (closes the E33
                                   # 8h dormant-fix gap; narrow sudoers rule)
   engineer_sessions_per_day: 4    # E44: was hardcoded to 1 — the real throughput
@@ -114,7 +115,7 @@ agent_autonomy:
 # Independent watchdog (cron, outside the trading process). E34: self-healing —
 # a wedged Gateway is restarted by the watchdog itself, once per realert window.
 watchdog:
-  auto_restart_gateway: true
+  auto_restart_gateway: false  # safe public sample; explicit opt-in required
 
 # Portfolio risk targets
 risk:
@@ -148,7 +149,18 @@ costs:
 #   ollama running (enabled)   -> local fallback
 #   neither                    -> deterministic heuristic/lexicon
 llm:
-  enabled: true                     # ollama fallback on/off
+  provider: auto                    # unchanged Anthropic -> Ollama -> deterministic chain
+  # Opt-in only: provider: vllm routes S2/S3 through the private research gateway.
+  # Switching a measured live book's model requires a separately registered experiment.
+  vllm:
+    base_url: "http://127.0.0.1:8081/v1" # private gateway / SSH port forward
+    api_key_env: "FUND_VLLM_API_KEY"    # credential stored only in environment/.env
+    model: "fund-llm"
+    timeout_seconds: 30
+    max_context_tokens: 4096
+    max_output_tokens: 1024
+    max_prompt_chars: 24000
+  enabled: false  # safe public sample; explicit opt-in required
   model: "qwen2.5:3b-instruct"      # ollama model
   host: "http://localhost:11434"
   s3_model: "claude-opus-5"        # S3 PM — frontier judgment. E50: same $5/$25
@@ -166,8 +178,8 @@ llm:
     claude-opus-5:    { input: 5.0,  output: 25.0 }
     claude-haiku-4-5: { input: null, output: null }
 
-  max_pm_calls_per_day: 16          # S3 Anthropic decisions/day (~$8/wk headroom)
-  max_scorer_calls_per_day: 400     # S2 Anthropic headline scores/day
+  max_pm_calls_per_day: 0  # safe public sample; explicit opt-in required
+  max_scorer_calls_per_day: 0  # safe public sample; explicit opt-in required
 
 # Information-gated rebalancing: books only re-decide on NEW information —
 # a new daily bar, or a material shift in the news signal. Otherwise weights

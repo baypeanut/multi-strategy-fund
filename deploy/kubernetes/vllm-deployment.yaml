@@ -1,0 +1,161 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm
+  namespace: fund-llm
+  labels:
+    app.kubernetes.io/part-of: fund-llm
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vllm
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: fund-llm
+        app.kubernetes.io/name: vllm
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      containers:
+      - name: vllm
+        image: vllm/vllm-openai:v0.31.0@sha256:c1c9f6fd5c109ba7f0546a59f5b2f15fb87f64c77782e90a27b648b42a8e67c3
+        imagePullPolicy: IfNotPresent
+        command:
+        - vllm
+        - serve
+        args:
+        - $(FUND_MODEL_ID)
+        - --revision
+        - $(FUND_MODEL_REVISION)
+        - --tokenizer-revision
+        - $(FUND_MODEL_REVISION)
+        - --served-model-name
+        - $(MODEL_NAME)
+        - --host
+        - 0.0.0.0
+        - --port
+        - '8000'
+        - --dtype
+        - half
+        - --max-model-len
+        - '4096'
+        - --max-num-seqs
+        - '8'
+        - --gpu-memory-utilization
+        - '0.80'
+        - --generation-config
+        - vllm
+        - --enforce-eager
+        - --no-enable-log-requests
+        env:
+        - name: VLLM_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: fund-llm-secrets
+              key: vllm-api-key
+        - name: FUND_MODEL_ID
+          valueFrom:
+            configMapKeyRef:
+              name: fund-llm-config
+              key: FUND_MODEL_ID
+        - name: FUND_MODEL_REVISION
+          valueFrom:
+            configMapKeyRef:
+              name: fund-llm-config
+              key: FUND_MODEL_REVISION
+        - name: MODEL_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: fund-llm-config
+              key: MODEL_NAME
+        - name: HF_HOME
+          valueFrom:
+            configMapKeyRef:
+              name: fund-llm-config
+              key: HF_HOME
+        - name: VLLM_CACHE_ROOT
+          valueFrom:
+            configMapKeyRef:
+              name: fund-llm-config
+              key: VLLM_CACHE_ROOT
+        - name: XDG_CACHE_HOME
+          valueFrom:
+            configMapKeyRef:
+              name: fund-llm-config
+              key: XDG_CACHE_HOME
+        - name: VLLM_NO_USAGE_STATS
+          valueFrom:
+            configMapKeyRef:
+              name: fund-llm-config
+              key: VLLM_NO_USAGE_STATS
+        - name: HF_HUB_DISABLE_TELEMETRY
+          valueFrom:
+            configMapKeyRef:
+              name: fund-llm-config
+              key: HF_HUB_DISABLE_TELEMETRY
+        ports:
+        - name: http
+          containerPort: 8000
+        resources:
+          requests:
+            cpu: '4'
+            memory: 16Gi
+            nvidia.com/gpu: 1
+          limits:
+            cpu: '8'
+            memory: 24Gi
+            nvidia.com/gpu: 1
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        volumeMounts:
+        - name: model-cache
+          mountPath: /model-cache
+        - name: shm
+          mountPath: /dev/shm
+        startupProbe:
+          httpGet:
+            path: /health
+            port: http
+          timeoutSeconds: 3
+          periodSeconds: 10
+          failureThreshold: 180
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          timeoutSeconds: 3
+          periodSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          timeoutSeconds: 3
+          periodSeconds: 15
+          failureThreshold: 5
+      volumes:
+      - name: model-cache
+        persistentVolumeClaim:
+          claimName: vllm-model-cache
+      - name: shm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 2Gi
+      nodeSelector:
+        kubernetes.io/os: linux
+        kubernetes.io/arch: amd64
+      tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+      enableServiceLinks: false

@@ -1,0 +1,6 @@
+# Separate gateway/benchmark environment; GPU vLLM runs in its pinned image.
+fastapi==0.143.0
+pydantic==2.14.0
+httpx==0.28.1
+uvicorn==0.54.0
+prometheus-client==0.26.0

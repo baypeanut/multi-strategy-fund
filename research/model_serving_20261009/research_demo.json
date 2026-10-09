@@ -1,0 +1,211 @@
+{
+  "schema_version": 1,
+  "completed_at_utc": "2026-10-09T18:24:06.059773+00:00",
+  "purpose": "Observed structured model research/critique HTTP calls; deterministic synthetic-input gates; no trading performance claim.",
+  "provenance": {
+    "endpoint": "http://127.0.0.1:18091/v1",
+    "model_info_declarations": {
+      "model": "fund-llm",
+      "backend": "vllm",
+      "deployment_environment": "gpu-kubernetes",
+      "model_revision": "989aa7980e4cf806f80c7fef2b1adb7bc71aa306",
+      "vllm_version": "0.31.0"
+    },
+    "backend_claim": "vllm",
+    "evidence_kind": "MODEL_API_WORKLOAD",
+    "gpu_execution_verified_by_demo": false,
+    "hardware_evidence_requirement": "Separate observed Kubernetes/vLLM/GPU deployment artifacts are required.",
+    "synthetic_inputs": true,
+    "market_backtest_performed": false,
+    "orders_submitted": 0,
+    "ledger_writes": 0
+  },
+  "fixture": {
+    "label": "SYNTHETIC_PIPELINE_FIXTURE_NOT_MARKET_DATA",
+    "is_synthetic": true,
+    "is_out_of_sample": false,
+    "leakage_audit_complete": false,
+    "gross_trade_returns_bps": [
+      20,
+      -15,
+      40,
+      -30,
+      35,
+      -20,
+      15,
+      -25,
+      30,
+      -40,
+      25,
+      -10
+    ],
+    "round_trip_cost_bps": 10,
+    "return_basis": "sum of individual equal-notional trade returns; not compounded portfolio NAV"
+  },
+  "deterministic_evaluation": {
+    "sample_trades": 12,
+    "gross_trade_return_sum_bps": 25,
+    "modeled_cost_sum_bps": 120,
+    "net_trade_return_sum_bps": -95,
+    "net_trade_returns_bps": [
+      10,
+      -25,
+      30,
+      -40,
+      25,
+      -30,
+      5,
+      -35,
+      20,
+      -50,
+      15,
+      -20
+    ],
+    "net_winners": 6,
+    "net_losers": 6,
+    "breakeven_trades": 0,
+    "fixture_only": true,
+    "is_real_backtest": false,
+    "return_basis": "sum of individual equal-notional trade returns; not compounded portfolio NAV",
+    "deterministic_gate": {
+      "eligible_for_live_trading": false,
+      "decision": "research_only_no_orders",
+      "reasons": [
+        "synthetic inputs are not evidence of market performance",
+        "no independently held-out market evaluation",
+        "no completed leakage/causality audit",
+        "insufficient sample: fewer than 30 fixture trades",
+        "nonpositive net trade-return sum after modeled costs",
+        "demo has no broker or deployment authorization interface"
+      ],
+      "llm_verdict_can_override_gate": false
+    }
+  },
+  "roles": [
+    {
+      "role": "research_proposer",
+      "task": "research",
+      "actual_http_generation": true,
+      "transport": "validated_gateway_http",
+      "model": "fund-llm",
+      "request_id": "51344581-2d71-4d44-b211-f3ee0bbd1146",
+      "prompt_sha256": "48fbf98b72c7b9695f0e3ae268c7253f49bdf66d5e917cbde6b56614b48d8a24",
+      "client_latency_seconds": 10.335301000042818,
+      "usage": {
+        "input_tokens": 184,
+        "output_tokens": 183
+      },
+      "data": {
+        "hypothesis": "Opening-range breakout signals can predict future price movements with a higher probability of success than random selection.",
+        "rules": [
+          "Select a stock with a recent opening range breakout.",
+          "Observe the stock's price movement for the next 10 bars.",
+          "Enter a long position if the stock's price breaks above the breakout range's high on the 11th bar.",
+          "Exit the position if the stock's price breaks below the breakout range's low on the 12th bar."
+        ],
+        "risks": [
+          "Market volatility can cause the breakout to fail.",
+          "The stock may not have a breakout, leading to a loss.",
+          "The next-bar entry may not be profitable due to market conditions."
+        ],
+        "verdict": "test",
+        "confidence": 0.85
+      }
+    },
+    {
+      "role": "research_critic",
+      "task": "research",
+      "actual_http_generation": true,
+      "transport": "validated_gateway_http",
+      "model": "fund-llm",
+      "request_id": "0338fa48-172c-442c-990d-b86bc14f9d4d",
+      "prompt_sha256": "f7f24f7f5b14f431e97314f5eb5b684cd756f036d4731b91b6c7bff7eee6fc38",
+      "client_latency_seconds": 5.802121124928817,
+      "usage": {
+        "input_tokens": 747,
+        "output_tokens": 175
+      },
+      "data": {
+        "hypothesis": "Opening-range breakout signals can predict future price movements with a higher probability of success than random selection.",
+        "rules": [
+          "Select a stock with a recent opening range breakout.",
+          "Observe the stock's price movement for the next 10 bars.",
+          "Enter a long position if the stock's price breaks above the breakout range's high on the 11th bar.",
+          "Exit the position if the stock's price breaks below the breakout range's low on the 12th bar."
+        ],
+        "risks": [
+          "Market volatility can cause the breakout to fail.",
+          "The stock may not have a breakout, leading to a loss.",
+          "The next-bar entry may not be profitable due to market conditions."
+        ],
+        "verdict": "insufficient_evidence",
+        "confidence": 0.65
+      }
+    },
+    {
+      "role": "paper_portfolio_proposer",
+      "task": "portfolio",
+      "actual_http_generation": true,
+      "transport": "validated_gateway_http",
+      "model": "fund-llm",
+      "request_id": "fc3cad6b-3c7d-4504-9b5c-cf3c86e8c805",
+      "prompt_sha256": "e938a0b3a03f9804caf583288d8e5f18d4815a14363d5261569974d300b38293",
+      "client_latency_seconds": 2.128673917031847,
+      "usage": {
+        "input_tokens": 296,
+        "output_tokens": 39
+      },
+      "data": {
+        "positions": [
+          {
+            "symbol": "SPY",
+            "weight": 0.045
+          },
+          {
+            "symbol": "QQQ",
+            "weight": 0.045
+          }
+        ]
+      }
+    }
+  ],
+  "risk_wrapper_demo": {
+    "input_label": "SYNTHETIC_BRIEFING_NOT_MARKET_DATA",
+    "raw_model_proposal": {
+      "SPY": 0.045,
+      "QQQ": 0.045
+    },
+    "sanitized_weights": {
+      "SPY": 0.006666666666666668,
+      "QQQ": 0.003333333333333334
+    },
+    "violations": [
+      "clip SPY: +0.045 -> cap 0.01",
+      "clip QQQ: +0.045 -> cap 0.01",
+      "clip QQQ: liquidity 0.010->0.005",
+      "throttle turnover 0.015 -> 0.01"
+    ],
+    "limits": {
+      "max_position": 0.01,
+      "max_gross": 0.015,
+      "max_turnover": 0.01,
+      "nav": 10000,
+      "adv_cap": 0.01
+    },
+    "synthetic_adv_dollars": {
+      "SPY": 10000,
+      "QQQ": 5000
+    },
+    "post_gate_checks": {
+      "universe": true,
+      "position": true,
+      "liquidity": true,
+      "gross": true,
+      "turnover_from_cash": true
+    },
+    "orders_submitted": 0,
+    "live_trading_eligible": false
+  },
+  "total_reported_input_tokens": 1227,
+  "total_reported_output_tokens": 397
+}
